@@ -1,0 +1,702 @@
+     1→     1→import type { Unit } from "@/lib/content/types";
+     2→     2→
+     3→     3→export const u1: Unit = {
+     4→     4→  id: "u1",
+     5→     5→  number: 1,
+     6→     6→  code: "UNIT 1",
+     7→     7→  title: "Introduction to Deep Learning",
+     8→     8→  subtitle: "Perceptron · Learning Paradigms · Loss Functions · Backpropagation · Gradient Descent",
+     9→     9→  description:
+    10→    10→    "Start from the biological neuron and the perceptron, understand how networks learn through loss functions, backpropagation and gradient descent — with every worked example from the notes.",
+    11→    11→  sourceFile: "CCE3144_Deep_Learning_Unit1.pdf",
+    12→    12→  topics: ["Perceptron", "Loss Functions", "Backpropagation", "SGD"],
+    13→    13→  lessons: [
+    14→    14→    /* ---------------------------------------------------------------- */
+    15→    15→    {
+    16→    16→      id: "u1-l1",
+    17→    17→      title: "What is Deep Learning?",
+    18→    18→      subtitle: "Where DL sits inside AI, why it exploded in the 2010s, and how a brain cell became a math formula.",
+    19→    19→      minutes: 9,
+    20→    20→      sections: [
+    21→    21→        {
+    22→    22→          id: "u1-l1-s1",
+    23→    23→          title: "Deep Learning in one picture",
+    24→    24→          blocks: [
+    25→    25→            {
+    26→    26→              type: "text",
+    27→    27→              value:
+    28→    28→                "Deep Learning (DL) is the branch of Machine Learning that uses multi-layered (“deep”) artificial neural networks to learn directly from data.",
+    29→    29→            },
+    30→    30→            { type: "widget", widgetId: "u1-ai-ml-dl", title: "AI ⊃ ML ⊃ DL — and what depth does", description: "Explore the nesting of AI, ML and DL, then step through how an image is recognised layer by layer — edges → shapes → parts → objects." },
+    31→    31→            {
+    32→    32→              type: "bullets",
+    33→    33→              items: [
+    34→    34→                "Deep Learning is a **subset of Machine Learning (ML)**, which itself is a subset of **Artificial Intelligence (AI)**.",
+    35→    35→                "It uses artificial neural networks with **many hidden layers** to automatically learn **hierarchical representations** of raw data.",
+    36→    36→                "Unlike classical ML, DL removes the need for **manual / hand-crafted feature engineering** — the network learns useful features by itself.",
+    37→    37→              ],
+    38→    38→            },
+    39→    39→            {
+    40→    40→              type: "callout",
+    41→    41→              variant: "key",
+    42→    42→              title: "Example — image recognition hierarchy",
+    43→    43→              blocks: [
+    44→    44→                {
+    45→    45→                  type: "text",
+    46→    46→                  value:
+    47→    47→                    "Early layers detect **edges** → middle layers detect **shapes/textures** → deeper layers detect **object parts** → final layers recognise the **whole object**.",
+    48→    48→                },
+    49→    49→              ],
+    50→    50→            },
+    51→    51→          ],
+    52→    52→        },
+    53→    53→        {
+    54→    54→          id: "u1-l1-s2",
+    55→    55→          title: "Why Deep Learning now? — the three enablers",
+    56→    56→          blocks: [
+    57→    57→            {
+    58→    58→              type: "text",
+    59→    59→              value:
+    60→    60→                "The core ideas are old, so what changed? Three things made deep networks practical at the same time:",
+    61→    61→            },
+    62→    62→            {
+    63→    63→              type: "table",
+    64→    64→              headers: ["Enabler", "What it provides", "Examples"],
+    65→    65→              rows: [
+    66→    66→                ["Big Data", "Massive labelled and unlabelled datasets to train large models", "ImageNet, web-scale text"],
+    67→    67→                ["Compute Power", "GPUs / TPUs parallelise the huge number of matrix multiplications", "NVIDIA GPUs, Google TPUs"],
+    68→    68→                ["Algorithmic Advances", "Better activations, optimisers and regularisation make very deep networks trainable", "ReLU, Adam, RMSProp, Dropout, Batch Normalisation"],
+    69→    69→              ],
+    70→    70→            },
+    71→    71→          ],
+    72→    72→        },
+    73→    73→        {
+    74→    74→          id: "u1-l1-s3",
+    75→    75→          title: "Applications of Deep Learning",
+    76→    76→          blocks: [
+    77→    77→            {
+    78→    78→              type: "table",
+    79→    79→              headers: ["Domain", "Example applications"],
+    80→    80→              rows: [
+    81→    81→                ["Computer Vision", "Image classification, object detection, face recognition"],
+    82→    82→                ["Natural Language Processing", "Machine translation, chatbots, sentiment analysis"],
+    83→    83→                ["Speech Processing", "Speech-to-text, voice assistants"],
+    84→    84→                ["Healthcare", "Disease diagnosis from scans, drug discovery"],
+    85→    85→                ["Autonomous Systems", "Self-driving cars, robotic control"],
+    86→    86→              ],
+    87→    87→            },
+    88→    88→          ],
+    89→    89→        },
+    90→    90→        {
+    91→    91→          id: "u1-l1-s4",
+    92→    92→          title: "Biological inspiration — from neuron to perceptron",
+    93→    93→          blocks: [
+    94→    94→            {
+    95→    95→              type: "text",
+    96→    96→              value:
+    97→    97→                "Artificial neurons are loosely inspired by biological neurons in the brain. Hover each part of the interactive diagram below to see the analogy.",
+    98→    98→            },
+    99→    99→            { type: "widget", widgetId: "u1-neuron", title: "Biological vs artificial neuron", description: "Hover the parts of a real neuron to discover which artificial component each one inspired." },
+   100→   100→            {
+   101→   101→              type: "table",
+   102→   102→              headers: ["Biological part", "Artificial counterpart"],
+   103→   103→              rows: [
+   104→   104→                ["Dendrites (receive signals)", "Inputs $x_1, x_2, \\dots, x_n$"],
+   105→   105→                ["Soma (accumulates signals)", "Weighted summation $\\sum$"],
+   106→   106→                ["Axon (fires if threshold crossed)", "Activation function producing an output"],
+   107→   107→                ["Synapse strength", "Weight $w_i$ — learning = adjusting these weights"],
+   108→   108→              ],
+   109→   109→            },
+   110→   110→          ],
+   111→   111→        },
+   112→   112→      ],
+   113→   113→    },
+   114→   114→    /* ---------------------------------------------------------------- */
+   115→   115→    {
+   116→   116→      id: "u1-l2",
+   117→   117→      title: "The Perceptron",
+   118→   118→      subtitle: "The simplest neuron: weighted sum, bias, step function — and the line it draws through data.",
+   119→   119→      minutes: 14,
+   120→   120→      sections: [
+   121→   121→        {
+   122→   122→          id: "u1-l2-s1",
+   123→   123→          title: "Definition and mathematical model",
+   124→   124→          blocks: [
+   125→   125→            {
+   126→   126→              type: "text",
+   127→   127→              value:
+   128→   128→                "Proposed by **Frank Rosenblatt (1958)**, building on the earlier McCulloch–Pitts neuron model (1943). A perceptron is the simplest artificial neuron: it performs **binary classification** by drawing a straight-line (linear) decision boundary between two classes. It is the fundamental building block of larger Multi-Layer Perceptrons.",
+   129→   129→            },
+   130→   130→            {
+   131→   131→              type: "text",
+   132→   132→              value: "A perceptron performs two operations in sequence — a weighted summation, then a non-linear activation:",
+   133→   133→            },
+   134→   134→            {
+   135→   135→              type: "formula",
+   136→   136→              tex: "z = w_1x_1 + w_2x_2 + \\dots + w_nx_n + b = \\sum_i w_ix_i + b",
+   137→   137→              caption: "Net input — a linear combination of the inputs",
+   138→   138→            },
+   139→   139→            {
+   140→   140→              type: "formula",
+   141→   141→              tex: "y = f(z) = \\begin{cases} 1 & \\text{if } z \\ge 0 \\\\ 0 & \\text{if } z < 0 \\end{cases}",
+   142→   142→              caption: "Output — unit-step (threshold) activation",
+   143→   143→            },
+   144→   144→            {
+   145→   145→              type: "heading",
+   146→   146→              value: "Significance of each component",
+   147→   147→            },
+   148→   148→            {
+   149→   149→              type: "table",
+   150→   150→              headers: ["Component", "Role"],
+   151→   151→              rows: [
+   152→   152→                ["Inputs $x_1\\dots x_n$", "Numeric feature values describing the pattern to be classified"],
+   153→   153→                ["Weights $w_1\\dots w_n$", "Learnable parameters deciding how strongly each input influences the output; learned from data"],
+   154→   154→                ["Bias $b$", "Shifts the decision boundary away from the origin, so the boundary need not pass through $(0,0)$"],
+   155→   155→                ["Net input $z$", "Geometrically: the (signed) distance of a point from the decision hyperplane"],
+   156→   156→                ["Activation $f(z)$", "Converts the continuous net input into a discrete class decision (0 or 1)"],
+   157→   157→              ],
+   158→   158→            },
+   159→   159→          ],
+   160→   160→        },
+   161→   161→        {
+   162→   162→          id: "u1-l2-s2",
+   163→   163→          title: "Geometric interpretation — linear separability",
+   164→   164→          blocks: [
+   165→   165→            {
+   166→   166→              type: "bullets",
+   167→   167→              items: [
+   168→   168→                "The equation $\\sum w_ix_i + b = 0$ defines a **straight line** (2 inputs), a **plane** (3 inputs), or a **hyperplane** ($n$ inputs) that separates the input space into two half-spaces.",
+   169→   169→                "A perceptron can classify a dataset correctly **only if the two classes are linearly separable** — i.e. some hyperplane can separate them completely.",
+   170→   170→              ],
+   171→   171→            },
+   172→   172→            {
+   173→   173→              type: "widget",
+   174→   174→              widgetId: "u1-perceptron-lab",
+   175→   175→              title: "Perceptron playground",
+   176→   176→              description: "Drag the weights and bias to move the decision line. Try the AND, OR and XOR presets — watch how XOR can never be separated by one straight line.",
+   177→   177→            },
+   178→   178→          ],
+   179→   179→        },
+   180→   180→        {
+   181→   181→          id: "u1-l2-s3",
+   182→   182→          title: "The perceptron learning algorithm",
+   183→   183→          blocks: [
+   184→   184→            {
+   185→   185→              type: "text",
+   186→   186→              value: "Weights are learned iteratively so that the perceptron's output matches the desired target for every training example.",
+   187→   187→            },
+   188→   188→            {
+   189→   189→              type: "numbered",
+   190→   190→              items: [
+   191→   191→                "**Initialise** — set weights $w_i$ and bias $b$ to 0 (or small random values); choose a learning rate $\\eta$, $0 < \\eta \\le 1$.",
+   192→   192→                "**For every training pair $(x, t)$** — (a) compute the net input $z = \\sum w_ix_i + b$; (b) compute the predicted output $y = f(z)$; (c) compute the error $e = t - y$; (d) update every weight $w_i \\leftarrow w_i + \\eta \\cdot e \\cdot x_i$; (e) update the bias $b \\leftarrow b + \\eta \\cdot e$.",
+   193→   193→                "**Repeat** — one pass over all examples is one **epoch**. Repeat over multiple epochs until an entire epoch produces **zero errors** (convergence), or a maximum number of epochs is reached.",
+   194→   194→              ],
+   195→   195→            },
+   196→   196→            {
+   197→   197→              type: "formula",
+   198→   198→              tex: "w_i(\\text{new}) = w_i(\\text{old}) + \\eta\\,(t-y)\\,x_i \\qquad b(\\text{new}) = b(\\text{old}) + \\eta\\,(t-y)",
+   199→   199→              caption: "The perceptron learning rule",
+   200→   200→            },
+   201→   201→            {
+   202→   202→              type: "callout",
+   203→   203→              variant: "info",
+   204→   204→              title: "Why does this update rule work?",
+   205→   205→              blocks: [
+   206→   206→                {
+   207→   207→                  type: "bullets",
+   208→   208→                  items: [
+   209→   209→                    "If the prediction is already correct ($e = 0$): no change is made — there is nothing to fix.",
+   210→   210→                    "If $t = 1$ but $y = 0$ ($e = +1$): weights increase along $x_i$, raising $z$ next time so it is more likely to cross the threshold and fire.",
+   211→   211→                    "If $t = 0$ but $y = 1$ ($e = -1$): weights decrease, lowering $z$ next time so it stays below threshold.",
+   212→   212→                  ],
+   213→   213→                },
+   214→   214→              ],
+   215→   215→            },
+   216→   216→            {
+   217→   217→              type: "callout",
+   218→   218→              variant: "key",
+   219→   219→              title: "Perceptron Convergence Theorem",
+   220→   220→              blocks: [
+   221→   221→                {
+   222→   222→                  type: "text",
+   223→   223→                  value:
+   224→   224→                    "If the two classes are linearly separable, this algorithm is **guaranteed** to find a separating hyperplane in a finite number of steps.",
+   225→   225→                },
+   226→   226→              ],
+   227→   227→            },
+   228→   228→          ],
+   229→   229→        },
+   230→   230→        {
+   231→   231→          id: "u1-l2-s4",
+   232→   232→          title: "Worked example — training a perceptron on the AND gate",
+   233→   233→          blocks: [
+   234→   234→            {
+   235→   235→              type: "example",
+   236→   236→              title: "Learning the AND function (full trace, computer-verified)",
+   237→   237→              given: [
+   238→   238→                "Truth table: AND(0,0)=0, AND(0,1)=0, AND(1,0)=0, AND(1,1)=1",
+   239→   239→                "Initial weights $w_1 = 0$, $w_2 = 0$, bias $b = 0$, learning rate $\\eta = 1$",
+   240→   240→                "Unit-step activation: $z \\ge 0 \\Rightarrow y = 1$",
+   241→   241→              ],
+   242→   242→              steps: [
+   243→   243→                {
+   244→   244→                  label: "Epoch 1, sample 1: $x=(0,0)$, $t=0$ — only the bias can move",
+   245→   245→                  blocks: [
+   246→   246→                    { type: "formula", tex: "z = (0)(0)+(0)(0)+0 = 0 \\;\\Rightarrow\\; y = 1 \\;(z \\ge 0)" },
+   247→   247→                    { type: "formula", tex: "e = t - y = -1 \\;\\Rightarrow\\; b \\leftarrow 0 + 1(-1) = -1" },
+   248→   248→                    {
+   249→   249→                      type: "text",
+   250→   250→                      value:
+   251→   251→                        "Both inputs are 0, so only the bias absorbs the correction — weights cannot change when their input is 0.",
+   252→   252→                    },
+   253→   253→                  ],
+   254→   254→                },
+   255→   255→                {
+   256→   256→                  label: "Epoch 1, samples 2–3: $x=(0,1)$ and $x=(1,0)$, $t=0$ — already correct",
+   257→   257→                  blocks: [
+   258→   258→                    { type: "formula", tex: "z = -1 < 0 \\Rightarrow y = 0,\\; e = 0 \\;\\Rightarrow\\; \\text{no update}" },
+   259→   259→                    {
+   260→   260→                      type: "text",
+   261→   261→                      value:
+   262→   262→                        "Zero error means the current weights already work for these samples — the rule leaves them untouched.",
+   263→   263→                    },
+   264→   264→                  ],
+   265→   265→                },
+   266→   266→                {
+   267→   267→                  label: "Epoch 1, sample 4: $x=(1,1)$, $t=1$ — the positive example is missed",
+   268→   268→                  blocks: [
+   269→   269→                    { type: "formula", tex: "z = (0)(1)+(0)(1)+(-1) = -1 \\;\\Rightarrow\\; y = 0,\\; e = +1" },
+   270→   270→                    { type: "formula", tex: "w_1 \\leftarrow 0+1(1)(1)=1,\\quad w_2 \\leftarrow 1,\\quad b \\leftarrow -1+1 = 0" },
+   271→   271→                    {
+   272→   272→                      type: "text",
+   273→   273→                      value:
+   274→   274→                        "The only positive example was misclassified as 0, so weights increase along both active inputs, pushing $z$ upward for this pattern next time.",
+   275→   275→                    },
+   276→   276→                  ],
+   277→   277→                },
+   278→   278→                {
+   279→   279→                  label: "Epochs 2–6 (the full trace)",
+   280→   280→                  blocks: [
+   281→   281→                    {
+   282→   282→                      type: "widget",
+   283→   283→                      widgetId: "u1-and-training",
+   284→   284→                      title: "AND-gate training, step by step",
+   285→   285→                      description: "Walk through every sample of every epoch exactly as in the notes, and watch the decision line converge to 2x₁ + x₂ − 3 = 0.",
+   286→   286→                    },
+   287→   287→                    {
+   288→   288→                      type: "table",
+   289→   289→                      headers: ["Ep.", "(x₁,x₂)", "t", "z", "y", "t−y", "New (w₁,w₂,b)"],
+   290→   290→                      rows: [
+   291→   291→                        ["1", "0,0", "0", "0", "1", "−1", "0, 0, −1"],
+   292→   292→                        ["1", "0,1", "0", "−1", "0", "0", "0, 0, −1"],
+   293→   293→                        ["1", "1,0", "0", "−1", "0", "0", "0, 0, −1"],
+   294→   294→                        ["1", "1,1", "1", "−1", "0", "1", "1, 1, 0"],
+   295→   295→                        ["2", "0,0", "0", "0", "1", "−1", "1, 1, −1"],
+   296→   296→                        ["2", "0,1", "0", "0", "1", "−1", "1, 0, −2"],
+   297→   297→                        ["2", "1,0", "0", "−1", "0", "0", "1, 0, −2"],
+   298→   298→                        ["2", "1,1", "1", "−1", "0", "1", "2, 1, −1"],
+   299→   299→                        ["…", "…", "…", "…", "…", "…", "…"],
+   300→   300→                        ["6", "1,1", "1", "0", "1", "0", "2, 1, −3 ✓ converged"],
+   301→   301→                      ],
+   302→   302→                      caption: "Epoch 6 produces zero error on all four patterns → training has converged. Final weights: w₁ = 2, w₂ = 1, b = −3.",
+   303→   303→                    },
+   304→   304→                  ],
+   305→   305→                },
+   306→   306→                {
+   307→   307→                  label: "Verification and decision boundary",
+   308→   308→                  blocks: [
+   309→   309→                    {
+   310→   310→                      type: "table",
+   311→   311→                      headers: ["x₁", "x₂", "z = 2x₁+x₂−3", "y", "t", "Match?"],
+   312→   312→                      rows: [
+   313→   313→                        ["0", "0", "−3", "0", "0", "✓"],
+   314→   314→                        ["0", "1", "−2", "0", "0", "✓"],
+   315→   315→                        ["1", "0", "−1", "0", "0", "✓"],
+   316→   316→                        ["1", "1", "0", "1", "1", "✓"],
+   317→   317→                      ],
+   318→   318→                    },
+   319→   319→                    {
+   320→   320→                      type: "formula",
+   321→   321→                      tex: "2x_1 + x_2 - 3 = 0 \\;\\iff\\; x_2 = 3 - 2x_1",
+   322→   322→                      caption: "The learned line places (1,1) on the positive side and the other 3 points on the negative side",
+   323→   323→                    },
+   324→   324→                  ],
+   325→   325→                },
+   326→   326→              ],
+   327→   327→            },
+   328→   328→          ],
+   329→   329→        },
+   330→   330→        {
+   331→   331→          id: "u1-l2-s5",
+   332→   332→          title: "The XOR problem — the perceptron's famous limitation",
+   333→   333→          blocks: [
+   334→   334→            {
+   335→   335→              type: "table",
+   336→   336→              headers: ["x₁", "x₂", "XOR", "Class"],
+   337→   337→              rows: [
+   338→   338→                ["0", "0", "0", "Class 0"],
+   339→   339→                ["0", "1", "1", "Class 1"],
+   340→   340→                ["1", "0", "1", "Class 1"],
+   341→   341→                ["1", "1", "0", "Class 0"],
+   342→   342→              ],
+   343→   343→            },
+   344→   344→            {
+   345→   345→              type: "bullets",
+   346→   346→              items: [
+   347→   347→                "Class 0 points ${(0,0),(1,1)}$ and Class 1 points ${(0,1),(1,0)}$ lie on **opposite diagonals** of the unit square — no single straight line can separate them.",
+   348→   348→                "**Formally:** no $w_1, w_2, b$ satisfy all four inequalities implied by the XOR truth table simultaneously (adding the inequalities for $(0,0)$ and $(1,1)$ contradicts those for $(0,1)$ and $(1,0)$).",
+   349→   349→                "This limitation, highlighted by **Minsky & Papert (1969)**, was resolved by stacking multiple perceptron layers — the **Multi-Layer Perceptron (MLP)** — trained with **Backpropagation**.",
+   350→   350→                "XOR is solved by a **2-2-1 MLP** (2 inputs → 2 hidden neurons → 1 output neuron) with hard step activations — the output effectively computes $h_1 \\text{ AND } (\\text{NOT } h_2)$.",
+   351→   351→              ],
+   352→   352→            },
+   353→   353→            {
+   354→   354→              type: "quiz",
+   355→   355→              items: [
+   356→   356→                {
+   357→   357→                  id: "u1-check-1",
+   358→   358→                  question: "A perceptron uses the rule “output = 1 if z ≥ 0, else 0”. If the net input z = 0, the output is:",
+   359→   359→                  options: ["0", "1", "0.5", "Undefined"],
+   360→   360→                  correct: 1,
+   361→   361→                  explanation:
+   362→   362→                    "Since the rule includes equality (z ≥ 0), a net input of exactly 0 satisfies the condition, so the output is 1.",
+   363→   363→                },
+   364→   364→                {
+   365→   365→                  id: "u1-check-2",
+   366→   366→                  question: "A single-layer perceptron can correctly classify:",
+   367→   367→                  options: [
+   368→   368→                    "Only linearly separable patterns",
+   369→   369→                    "Any arbitrary pattern",
+   370→   370→                    "Only XOR-type patterns",
+   371→   371→                    "Only non-linear patterns",
+   372→   372→                  ],
+   373→   373→                  correct: 0,
+   374→   374→                  explanation:
+   375→   375→                    "A perceptron's decision boundary is a straight line / hyperplane, so it can separate only linearly separable classes (e.g. AND, OR) — not patterns like XOR.",
+   376→   376→                },
+   377→   377→              ],
+   378→   378→            },
+   379→   379→          ],
+   380→   380→        },
+   381→   381→      ],
+   382→   382→    },
+   383→   383→    /* ---------------------------------------------------------------- */
+   384→   384→    {
+   385→   385→      id: "u1-l3",
+   386→   386→      title: "Learning Paradigms — Supervised vs Unsupervised",
+   387→   387→      subtitle: "What “learning” means for a network, and how K-Means finds structure without labels.",
+   388→   388→      minutes: 10,
+   389→   389→      sections: [
+   390→   390→        {
+   391→   391→          id: "u1-l3-s1",
+   392→   392→          title: "Learning and recognition",
+   393→   393→          blocks: [
+   394→   394→            {
+   395→   395→              type: "text",
+   396→   396→              value:
+   397→   397→                "**“Learning”** in a neural network means automatically adjusting weights from data. **“Recognition”** is the use of the trained network to identify / classify new, unseen patterns. Based on the nature of the training data, learning is broadly divided into supervised and unsupervised learning.",
+   398→   398→            },
+   399→   399→            {
+   400→   400→              type: "compare",
+   401→   401→              pairs: [
+   402→   402→                {
+   403→   403→                  label: "Supervised Learning",
+   404→   404→                  left: [
+   405→   405→                    "Training data: **labelled** pairs $(X, Y)$ — Y is the known correct target",
+   406→   406→                    "Goal: learn a mapping $f: X \\to Y$ that minimises the difference between predicted and actual outputs",
+   407→   407→                    "Two task types: **Classification** (discrete category — spam / not spam, digit 0–9) and **Regression** (continuous value — house price, temperature)",
+   408→   408→                    "Examples: email spam detection, disease diagnosis from labelled scans, house-price prediction, the AND-gate perceptron",
+   409→   409→                    "Typical algorithms: Perceptron, Logistic Regression, CNN",
+   410→   410→                  ],
+   411→   411→                },
+   412→   412→                {
+   413→   413→                  label: "Unsupervised Learning",
+   414→   414→                  left: [
+   415→   415→                    "Training data: **only inputs X**, no target labels",
+   416→   416→                    "Goal: discover hidden structure, patterns, or groupings by itself",
+   417→   417→                    "Common tasks: **clustering**, dimensionality reduction, anomaly detection",
+   418→   418→                    "Examples: customer segmentation, grouping news articles by topic, anomaly detection in network traffic",
+   419→   419→                    "Typical algorithms: K-Means, PCA, Autoencoders",
+   420→   420→                  ],
+   421→   421→                },
+   422→   422→              ],
+   423→   423→            },
+   424→   424→            {
+   425→   425→              type: "table",
+   426→   426→              headers: ["Aspect", "Supervised Learning", "Unsupervised Learning"],
+   427→   427→              rows: [
+   428→   428→                ["Training data", "Labelled (X, Y)", "Unlabelled (X only)"],
+   429→   429→                ["Goal", "Learn mapping X → Y", "Discover hidden structure"],
+   430→   430→                ["Feedback", "Direct error signal (loss)", "No explicit error signal"],
+   431→   431→                ["Typical tasks", "Classification, Regression", "Clustering, Dimensionality reduction"],
+   432→   432→                ["Example algorithms", "Perceptron, Logistic Regression, CNN", "K-Means, PCA, Autoencoders"],
+   433→   433→                ["Data cost", "Expensive (needs human labelling)", "Cheaper (labels not required)"],
+   434→   434→              ],
+   435→   435→            },
+   436→   436→            {
+   437→   437→              type: "callout",
+   438→   438→              variant: "tip",
+   439→   439→              title: "Semi-supervised learning (a bridge between the two)",
+   440→   440→              blocks: [
+   441→   441→                {
+   442→   442→                  type: "text",
+   443→   443→                  value:
+   444→   444→                    "Trains on a small labelled set plus a much larger unlabelled set — used when labelling is expensive (e.g. expert radiologists) but raw data is cheap. The unlabelled data helps the model learn the input structure and generalise better.",
+   445→   445→                },
+   446→   446→              ],
+   447→   447→            },
+   448→   448→          ],
+   449→   449→        },
+   450→   450→        {
+   451→   451→          id: "u1-l3-s2",
+   452→   452→          title: "Worked example — K-Means clustering (one iteration)",
+   453→   453→          blocks: [
+   454→   454→            {
+   455→   455→              type: "text",
+   456→   456→              value:
+   457→   457→                "K-Means is a classic unsupervised algorithm that groups data into k clusters by iteratively updating cluster centroids — all without ever using a target label.",
+   458→   458→            },
+   459→   459→            { type: "widget", widgetId: "u1-kmeans", title: "K-Means lab", description: "Run the exact 4-point example from the notes one step at a time, then add your own points and watch centroids migrate." },
+   460→   460→            {
+   461→   461→              type: "example",
+   462→   462→              title: "K-Means, 4 points, k = 2",
+   463→   463→              given: [
+   464→   464→                "Points: A(1,1), B(2,1), C(4,3), D(5,4)",
+   465→   465→                "Initial centroids: $C_1 = (1,1)$, $C_2 = (5,4)$",
+   466→   466→              ],
+   467→   467→              steps: [
+   468→   468→                {
+   469→   469→                  label: "Step 1 — Assign each point to its nearest centroid (Euclidean distance)",
+   470→   470→                  blocks: [
+   471→   471→                    {
+   472→   472→                      type: "bullets",
+   473→   473→                      items: [
+   474→   474→                        "A(1,1): $d(C_1) = 0.00$, $d(C_2) = \\sqrt{25} = 5.00$ → **Cluster 1**",
+   475→   475→                        "B(2,1): $d(C_1) = 1.00$, $d(C_2) = \\sqrt{9+9} = 4.24$ → **Cluster 1**",
+   476→   476→                        "C(4,3): $d(C_1) = \\sqrt{9+4} = 3.61$, $d(C_2) = \\sqrt{2} = 1.41$ → **Cluster 2**",
+   477→   477→                        "D(5,4): $d(C_1) = 5.00$, $d(C_2) = 0.00$ → **Cluster 2**",
+   478→   478→                      ],
+   479→   479→                    },
+   480→   480→                  ],
+   481→   481→                },
+   482→   482→                {
+   483→   483→                  label: "Step 2 — Recompute centroids as the mean of assigned points",
+   484→   484→                  blocks: [
+   485→   485→                    {
+   486→   486→                      type: "bullets",
+   487→   487→                      items: [
+   488→   488→                        "Cluster 1 = {A(1,1), B(2,1)} → new $C_1 = (1.50, 1.00)$",
+   489→   489→                        "Cluster 2 = {C(4,3), D(5,4)} → new $C_2 = (4.50, 3.50)$",
+   490→   490→                      ],
+   491→   491→                    },
+   492→   492→                  ],
+   493→   493→                },
+   494→   494→                {
+   495→   495→                  label: "Significance",
+   496→   496→                  blocks: [
+   497→   497→                    {
+   498→   498→                      type: "text",
+   499→   499→                      value:
+   500→   500→                        "Each iteration pulls the centroid toward the centre of mass of its assigned points; the process repeats until centroids stop moving (convergence) — all without ever using a target label.",
+   501→   501→                    },
+   502→   502→                  ],
+   503→   503→                },
+   504→   504→              ],
+   505→   505→            },
+   506→   506→            {
+   507→   507→              type: "quiz",
+   508→   508→              items: [
+   509→   509→                {
+   510→   510→                  id: "u1-check-3",
+   511→   511→                  question: "Which of the following is an example of unsupervised learning?",
+   512→   512→                  options: [
+   513→   513→                    "Predicting house price from features",
+   514→   514→                    "Email spam classification",
+   515→   515→                    "Customer segmentation without labels",
+   516→   516→                    "Digit recognition using labelled images",
+   517→   517→                  ],
+   518→   518→                  correct: 2,
+   519→   519→                  explanation:
+   520→   520→                    "Customer segmentation without labels has no target output — the algorithm must discover groups on its own, the defining feature of unsupervised learning.",
+   521→   521→                },
+   522→   522→                {
+   523→   523→                  id: "u1-check-4",
+   524→   524→                  question: "In supervised learning, the training data consists of:",
+   525→   525→                  options: [
+   526→   526→                    "Only input features",
+   527→   527→                    "Input–output (labelled) pairs",
+   528→   528→                    "Randomly generated numbers",
+   529→   529→                    "Only cluster centroids",
+   530→   530→                  ],
+   531→   531→                  correct: 1,
+   532→   532→                  explanation:
+   533→   533→                    "Supervised learning requires labelled data: every input X is paired with its correct output / target Y.",
+   534→   534→                },
+   535→   535→              ],
+   536→   536→            },
+   537→   537→          ],
+   538→   538→        },
+   539→   539→      ],
+   540→   540→    },
+   541→   541→    /* ---------------------------------------------------------------- */
+   542→   542→    {
+   543→   543→      id: "u1-l4",
+   544→   544→      title: "Loss Functions",
+   545→   545→      subtitle: "MSE, MAE, Binary and Categorical Cross-Entropy — the numbers training tries to minimise.",
+   546→   546→      minutes: 12,
+   547→   547→      sections: [
+   548→   548→        {
+   549→   549→          id: "u1-l4-s1",
+   550→   550→          title: "What is a loss function?",
+   551→   551→          blocks: [
+   552→   552→            {
+   553→   553→              type: "bullets",
+   554→   554→              items: [
+   555→   555→                "A loss function $L(Y, \\hat{Y})$ quantifies how far the model's prediction $\\hat{Y}$ is from the actual target $Y$ — a **single number** that training tries to minimise.",
+   556→   556→                "It is the objective that **backpropagation differentiates** and that **gradient descent minimises**.",
+   557→   557→                "Choice depends on the task: **regression** uses distance-based losses; **classification** uses probability-based losses.",
+   558→   558→              ],
+   559→   559→            },
+   560→   560→          ],
+   561→   561→        },
+   562→   562→        {
+   563→   563→          id: "u1-l4-s2",
+   564→   564→          title: "Regression loss — MSE and MAE",
+   565→   565→          blocks: [
+   566→   566→            {
+   567→   567→              type: "formula",
+   568→   568→              tex: "\\text{MSE} = \\frac{1}{n}\\sum_{i=1}^{n}(y_i - \\hat{y}_i)^2 \\qquad \\text{MAE} = \\frac{1}{n}\\sum_{i=1}^{n}|y_i - \\hat{y}_i|",
+   569→   569→            },
+   570→   570→            {
+   571→   571→              type: "bullets",
+   572→   572→              items: [
+   573→   573→                "Squaring is used instead of the raw error because: (i) it **removes the sign** so positive and negative errors do not cancel, and (ii) it **penalises large errors much more heavily** than small ones — a useful, differentiable property for gradient-based learning.",
+   574→   574→              ],
+   575→   575→            },
+   576→   576→            {
+   577→   577→              type: "example",
+   578→   578→              title: "MSE / MAE — predicted vs actual house prices (₹ lakh)",
+   579→   579→              given: ["Actual y = [50, 60, 70]", "Predicted ŷ = [48, 65, 68]"],
+   580→   580→              steps: [
+   581→   581→                {
+   582→   582→                  label: "Errors and squared errors",
+   583→   583→                  blocks: [
+   584→   584→                    {
+   585→   585→                      type: "table",
+   586→   586→                      headers: ["Actual (y)", "Predicted (ŷ)", "Error (y−ŷ)", "Squared error", "|Error|"],
+   587→   587→                      rows: [
+   588→   588→                        ["50", "48", "2", "4", "2"],
+   589→   589→                        ["60", "65", "−5", "25", "5"],
+   590→   590→                        ["70", "68", "2", "4", "2"],
+   591→   591→                      ],
+   592→   592→                    },
+   593→   593→                  ],
+   594→   594→                },
+   595→   595→                {
+   596→   596→                  label: "MSE = (1/3)(4 + 25 + 4) = 11.00",
+   597→   597→                  blocks: [
+   598→   598→                    { type: "formula", tex: "\\text{MSE} = \\tfrac{1}{3}(33) = 11.00 \\qquad \\text{MAE} = \\tfrac{1}{3}(9) = 3.00" },
+   599→   599→                  ],
+   600→   600→                },
+   601→   601→                {
+   602→   602→                  label: "Significance",
+   603→   603→                  blocks: [
+   604→   604→                    {
+   605→   605→                      type: "text",
+   606→   606→                      value:
+   607→   607→                        "MSE (11.0) is pulled upward by the single larger error of −5, illustrating how squaring emphasises big mistakes more than MAE does.",
+   608→   608→                    },
+   609→   609→                  ],
+   610→   610→                },
+   611→   611→              ],
+   612→   612→            },
+   613→   613→          ],
+   614→   614→        },
+   615→   615→        {
+   616→   616→          id: "u1-l4-s3",
+   617→   617→          title: "Classification loss — Binary Cross-Entropy (BCE)",
+   618→   618→          blocks: [
+   619→   619→            {
+   620→   620→              type: "formula",
+   621→   621→              tex: "\\text{BCE} = -\\big[\\, y\\cdot\\log(p) + (1-y)\\cdot\\log(1-p) \\,\\big]",
+   622→   622→              caption: "y ∈ {0,1} is the true label; p = P(y=1) is the predicted probability",
+   623→   623→            },
+   624→   624→            {
+   625→   625→              type: "text",
+   626→   626→              value:
+   627→   627→                "This comes from **Maximum Likelihood**: for $y=1$ we want $p$ close to 1 (loss $=-\\log p$, small when $p \\to 1$); for $y=0$ we want $p$ close to 0 (loss $=-\\log(1-p)$, small when $p \\to 0$).",
+   628→   628→            },
+   629→   629→            {
+   630→   630→              type: "example",
+   631→   631→              title: "Binary Cross-Entropy — three samples",
+   632→   632→              steps: [
+   633→   633→                {
+   634→   634→                  label: "Compute each loss",
+   635→   635→                  blocks: [
+   636→   636→                    {
+   637→   637→                      type: "table",
+   638→   638→                      headers: ["y (actual)", "p (predicted prob.)", "Loss formula used", "Loss value"],
+   639→   639→                      rows: [
+   640→   640→                        ["1", "0.90", "−log(0.90)", "0.1054"],
+   641→   641→                        ["0", "0.20", "−log(1−0.20) = −log(0.80)", "0.2231"],
+   642→   642→                        ["1", "0.60", "−log(0.60)", "0.5108"],
+   643→   643→                      ],
+   644→   644→                    },
+   645→   645→                  ],
+   646→   646→                },
+   647→   647→                {
+   648→   648→                  label: "Average BCE = (0.1054+0.2231+0.5108)/3 = 0.2798",
+   649→   649→                  blocks: [
+   650→   650→                    {
+   651→   651→                      type: "text",
+   652→   652→                      value:
+   653→   653→                        "Sample 3 (y=1, p=0.60) contributes the largest loss because the model was **correct but not confident** — BCE rewards confident, correct predictions and punishes confident, wrong ones very heavily.",
+   654→   654→                    },
+   655→   655→                  ],
+   656→   656→                },
+   657→   657→              ],
+   658→   658→            },
+   659→   659→          ],
+   660→   660→        },
+   661→   661→        {
+   662→   662→          id: "u1-l4-s4",
+   663→   663→          title: "Categorical Cross-Entropy (multi-class)",
+   664→   664→          blocks: [
+   665→   665→            {
+   666→   666→              type: "formula",
+   667→   667→              tex: "\\text{CCE} = -\\sum_i t_i \\log(p_i)",
+   668→   668→              caption: "t = one-hot target, p = softmax output",
+   669→   669→            },
+   670→   670→            {
+   671→   671→              type: "example",
+   672→   672→              title: "3-class problem, true class = 2 (one-hot target = [0,1,0])",
+   673→   673→              steps: [
+   674→   674→                {
+   675→   675→                  label: "Good prediction: softmax output [0.2, 0.7, 0.1]",
+   676→   676→                  blocks: [
+   677→   677→                    { type: "formula", tex: "\\text{CCE} = -\\log(0.7) = 0.357" },
+   678→   678→                    { type: "text", value: "Confident and correct — low loss." },
+   679→   679→                  ],
+   680→   680→                },
+   681→   681→                {
+   682→   682→                  label: "Poor prediction: softmax output [0.6, 0.1, 0.3]",
+   683→   683→                  blocks: [
+   684→   684→                    { type: "formula", tex: "\\text{CCE} = -\\log(0.1) = 2.303" },
+   685→   685→                    { type: "text", value: "Confident but wrong — very high loss." },
+   686→   686→                  ],
+   687→   687→                },
+   688→   688→                {
+   689→   689→                  label: "Key observation",
+   690→   690→                  blocks: [
+   691→   691→                    {
+   692→   692→                      type: "text",
+   693→   693→                      value:
+   694→   694→                        "Only the predicted probability assigned to the **true class** matters — all other softmax entries drop out because $t_i = 0$ for them.",
+   695→   695→                    },
+   696→   696→                  ],
+   697→   697→                },
+   698→   698→              ],
+   699→   699→            },
+   700→   700→          ],
+
+[showing lines 1-700 of 1290; use offset=701 with limit to continue reading]

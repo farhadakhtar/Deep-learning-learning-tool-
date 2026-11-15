@@ -1,0 +1,2227 @@
+CCE3144 Deep Learning                                                           Unit: Convolutional Neural Networks
+
+
+
+
+                        MANIPAL UNIVERSITY JAIPUR
+                        Department of Computer & Communication Engineering
+
+
+
+
+                           CCE3144 | DEEP LEARNING
+                                           [L-T-P-C : 3 0 0 3]
+
+
+                                          LECTURE NOTES
+                           Unit: Convolutional Neural Networks
+
+                                              Course Instructor
+                                     Dr. Manoj Kumar Sharma
+
+
+  Prescribed Syllabus -- Convolutional Neural Networks
+  Introduction to Convnet, training a Convnet, weights initialization, batch normalization, pooling,
+  padding, dropouts, hyperparameter optimization, CNN Architectures -- AlexNet, VGG, Inception,
+  ResNet.
+
+
+
+
+                                     Page 1 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                            Unit: Convolutional Neural Networks
+
+
+Contents
+
+1. Introduction to Convolutional Neural Networks (CNN)
+
+2. The Convolution Operation -- Filters, Feature Maps, Worked Example
+
+3. Padding and Stride
+
+4. Pooling (Max Pooling and Average Pooling)
+
+5. Training a ConvNet -- Forward Pass, Loss, Backpropagation, Gradient Descent
+
+6. Weight Initialization -- Zero, Random, Xavier/Glorot, He Initialization
+
+7. Batch Normalization
+
+8. Dropout
+
+9. Hyperparameter Optimization
+
+10. CNN Architectures -- AlexNet, VGG, Inception (GoogLeNet), ResNet
+
+11. Summary / Quick Revision Tables
+
+12. Practice Questions -- Section A: 15 Multiple Choice Questions (with solutions)
+
+13. Practice Questions -- Section B: 35 Short / Numerical / Descriptive Questions (with detailed
+solutions)
+
+
+
+
+                                      Page 2 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                           Unit: Convolutional Neural Networks
+
+
+1. Introduction to Convolutional Neural Networks
+
+1.1 What is a CNN?
+  ● A Convolutional Neural Network (CNN / ConvNet) is a deep learning architecture built specifically
+    for grid-structured data such as images (a 2-D grid of pixels).
+  ● Instead of treating every pixel as an independent input feature (as a plain dense network would), a
+    CNN learns small filters (kernels) that slide across the image and detect local patterns -- edges,
+    corners, textures, colours.
+  ● CNNs are the backbone of almost all modern computer-vision systems: image classification, object
+    detection, segmentation, face recognition, medical-image analysis, and self-driving perception.
+
+1.2 Why not simply use a fully-connected (dense) network on an image?
+A dense (fully connected) layer connects every input pixel to every neuron. For images this is extremely
+wasteful, as the next example shows.
+
+  Example 1.1 -- Parameter Explosion in a Plain Dense Network
+  Problem: A small colour image of size 32×32×3 is fed to a hidden layer of 1000 neurons. Compare
+  the number of parameters needed by (a) a fully-connected layer and (b) a convolution layer with 10
+  filters of size 5×5×3.
+  Step 1 -- Flatten the image: 32 × 32 × 3 = 3072 input values.
+
+  Step 2 -- Dense layer parameter count: each of the 1000 neurons needs its own weight for every
+  one of the 3072 inputs, plus 1 bias.
+
+                              Params = (3072 × 1000) + 1000 = 3,073,000
+
+  Step 3 -- Convolution layer parameter count: 10 filters, each 5×5×3, are reused (slid) across the
+  whole image.
+
+                               Params = (5×5×3 + 1) × 10 = 76 × 10 = 760
+
+  Step 4 -- Compare: 3,073,000 ÷ 760 ≈ 4043.
+
+  Significance: the convolution layer needs about 4000× fewer parameters than the dense layer,
+  because the same small filter is reused at every location instead of learning a brand-new weight for
+  every pixel. Fewer parameters means faster training, less memory, and (importantly) less overfitting
+  on limited data.
+
+
+
+1.3 Key Ideas That Make CNNs Efficient
+  ● Local connectivity (sparse interactions): each neuron in a conv layer looks at only a small local
+    patch (its receptive field) of the input, not the entire image.
+  ● Parameter sharing: the same filter weights are used at every spatial position, so a pattern learned
+    in one corner of the image (say, a vertical edge) can be detected anywhere else in the image with
+    the very same filter.
+
+
+                                     Page 3 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                       Unit: Convolutional Neural Networks
+
+  ● Translation invariance: because the filter scans the whole image, the network can recognise an
+    object even after it shifts position within the frame.
+  ● Hierarchical feature learning: early layers learn simple features (edges, colour blobs); deeper layers
+    combine these into increasingly complex features (textures, object parts, whole objects).
+
+1.4 The Overall CNN Pipeline
+A typical CNN is simply a stack of a few standard building blocks, repeated and then followed by a
+classifier head:
+
+
+
+
+ Figure 1.1: A classic CNN pipeline -- alternating Convolution+ReLU and Pooling blocks extract features; Fully-Connected
+                     layers then classify them (this particular layout is the classic LeNet-style pipeline).
+
+  ● Convolution layer -- applies learnable filters to extract local features and produces feature maps.
+  ● Activation function (ReLU) -- introduces non-linearity so the network can model complex, non-
+    linear relationships.
+  ● Pooling layer -- down-samples feature maps, cutting computation and adding a small amount of
+    translation invariance.
+  ● Fully Connected (Dense) layer -- after feature extraction, the high-level features are flattened and
+    passed through dense layers for final decision-making.
+  ● Softmax -- converts the last layer's raw scores (logits) into class probabilities that sum to 1.
+
+1.5 CNN vs. Traditional Neural Network -- Quick Comparison
+
+            Aspect               Plain Dense (Fully Connected) Network                   Convolutional Neural Network
+
+                                                                                     Each neuron sees only a small local
+ Connectivity                   Every input connects to every neuron
+                                                                                     patch
+
+ Parameters                     Extremely large for image-sized input                Far fewer, due to weight/filter sharing
+
+                                                                                     Preserved -- filters operate on 2-D
+ Spatial structure              Ignored -- image must be flattened
+                                                                                     patches
+
+ Translation invariance         None by default                                      Built in, via shared filters + pooling
+
+                                                                                     Images, video frames, spatial-grid
+ Typical use                    Tabular / generic data
+                                                                                     data
+
+
+
+                                          Page 4 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                 Unit: Convolutional Neural Networks
+
+
+2. The Convolution Operation
+
+2.1 What is a Filter (Kernel)?
+  ● A filter (kernel) is a small matrix of learnable weights -- commonly 3×3, 5×5, or 7×7.
+  ● It is convolved (slid) across the input, computing one dot product at every position it stops on.
+  ● Each filter learns to detect a specific pattern -- a vertical edge, a horizontal edge, a colour blob, a
+    texture, and so on.
+  ● A convolution layer normally has many filters. Each filter produces its own 2-D feature map
+    (activation map); stacking all of them gives the 3-D output volume of the layer.
+
+2.2 The Sliding-Window Computation -- Step by Step
+  ● Step 1: Place the filter over the top-left corner of the input.
+  ● Step 2: Multiply each filter weight by the input value it currently overlaps (element-wise).
+  ● Step 3: Sum all the products (add a bias term if used) -- this single number becomes ONE entry of
+    the output feature map.
+  ● Step 4: Slide the filter by the stride (number of pixels moved per step) and repeat Steps 2-3, until
+    the filter has swept over the whole input.
+
+2.3 Worked Example -- Convolving a 5×5 Input with a 3×3 Filter
+
+
+
+
+       Figure 2.1: A 3×3 filter convolved with a 5×5 input (stride 1, no padding) produces a 3×3 output feature map.
+
+
+
+
+                                           Page 5 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                               Unit: Convolutional Neural Networks
+
+
+  Example 2.1 -- Full Convolution Computation
+  Given: Input (5×5) and Filter (3×3) as shown in Figure 2.1. Stride = 1, no padding.
+
+  Step 1 -- Output size: with N=5, F=3, S=1, P=0, the output is (5−3)/1+1 = 3, so a 3×3 feature map (9
+  values to compute).
+
+  Step 2 -- Compute the top-left value (position 0,0), shown highlighted in Figure 2.1:
+
+                        (1×1+1×0+1×1) + (0×0+1×1+1×0) + (0×1+0×0+1×1) = 2 + 1 + 1 = 4
+
+  Step 3 -- Slide the filter one column right and repeat for every position. All nine computations:
+
+         Output position                   Element-wise sum (row by row)                                 Value
+
+ (0,0)                         (1+0+1)+(0+1+0)+(0+0+1)                                         4
+
+ (0,1)                         (1+0+0)+(0+1+0)+(0+0+1)                                         3
+
+ (0,2)                         (1+0+0)+(0+1+0)+(1+0+1)                                         4
+
+ (1,0)                         (0+0+1)+(0+0+0)+(0+0+1)                                         2
+
+ (1,1)                         (1+0+1)+(0+1+0)+(0+0+1)                                         4
+
+ (1,2)                         (1+0+0)+(0+1+0)+(1+0+0)                                         3
+
+ (2,0)                         (0+0+1)+(0+0+0)+(0+0+1)                                         2
+
+ (2,1)                         (0+0+1)+(0+1+0)+(1+0+0)                                         3
+
+ (2,2)                         (1+0+1)+(0+0+0)+(1+0+0)                                         4
+
+
+
+Final output feature map: [[4, 3, 4], [2, 4, 3], [2, 3, 4]] -- matches Figure 2.1 exactly.
+
+2.4 Multiple Filters and Multi-Channel Inputs
+  ● Depth of a filter always matches the depth of its input. If the input has C channels (e.g. C=3 for an
+    RGB image), every filter is actually F×F×C -- it convolves across all channels simultaneously and the
+    C partial sums are added together, giving back a single 2-D number per position (not C separate
+    maps).
+  ● Number of output channels = number of filters. Using K independent filters on the same input
+    produces K separate 2-D feature maps, stacked to form a volume of depth K.
+
+
+
+
+                                         Page 6 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                Unit: Convolutional Neural Networks
+
+
+  Example 2.2 -- Parameters for a Multi-Channel Convolution Layer
+  Given: Input volume 32×32×3 (RGB), 10 filters of size 5×5, stride 1, no padding.
+
+  Step 1: Each filter's true shape is 5×5×3 (depth matches input depth automatically).
+
+  Step 2 -- Parameters per filter (including 1 bias):
+
+                                        (5 × 5 × 3) + 1 = 75 + 1 = 76
+
+  Step 3 -- Total parameters for 10 filters:
+
+                                         76 × 10 = 760 parameters
+
+  Step 4 -- Output volume size: spatial size = (32−5)/1+1 = 28, depth = number of filters = 10, so the
+  output volume is 28×28×10.
+
+  Significance: notice the parameter count (760) does not depend on the image's spatial size (32×32)
+  at all -- only on the filter size, input depth, and number of filters. This is exactly why CNNs scale so
+  much better than dense networks to large images.
+
+
+
+2.5 Key Terminology Recap
+
+                   Term                                                    Meaning
+
+ Filter / Kernel                     Small matrix of learnable weights used to scan the input
+
+ Stride                              Number of pixels the filter moves at each step
+
+ Feature map / Activation map        Output produced by convolving one filter over the input
+
+ Receptive field                     The region of the input that influences one output value
+
+ Depth / Channels                    Number of feature maps stacked together in a volume
+
+
+
+
+3. Padding and Stride
+
+3.1 Why Do We Need Padding?
+  ● Without padding, the spatial size shrinks after every convolution (e.g. 32→28→24…), which limits
+    how many layers a network can have.
+  ● Border pixels are used far less often than centre pixels -- a corner pixel is covered by the filter only
+    once, while a centre pixel is covered many times -- so border information is under-represented.
+  ● Padding adds a border (almost always zeros) around the input so that we can: (1) control / preserve
+    the output size, and (2) give border pixels fairer coverage.
+
+3.2 Types of Padding
+
+
+
+
+                                       Page 7 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                  Unit: Convolutional Neural Networks
+
+
+            Type                                     Meaning                                  Effect on output size
+
+                                                                                        Output is smaller than the
+ Valid (P = 0)                No padding added
+                                                                                        input
+
+                                                                                        Output size equals input size
+ Same                         Just enough zero padding added
+                                                                                        (stride = 1)
+
+                              Maximum padding (filter starts with 1 pixel               Output is larger than the input
+ Full
+                              overlap)                                                  (rarely used)
+
+
+
+
+3.3 The General Output-Size Formula
+For an N×N input, filter size F, padding P, and stride S, the output spatial size O is:
+
+                                               O = (N + 2P − F) / (S) + 1
+
+  ● N = input size (height or width), F = filter size, P = padding (pixels added on each side), S = stride.
+  ● The division is followed by a floor (round down): if the filter does not fit an exact whole number of
+    times, the last partial slide is simply not used.
+
+3.4 Worked Example -- Finding Padding for 'Same' Output Size
+
+
+
+
+Figure 3.1: Zero padding (p=1) added around a 5×5 input so that a 3×3 filter (stride 1) produces an output the same size as
+                                                      the input.
+
+
+
+
+                                           Page 8 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                Unit: Convolutional Neural Networks
+
+
+  Example 3.1 -- Solve for the Padding That Keeps Output Size = Input Size
+  Given: N=5, F=3, S=1. Find P such that O = N ('same' padding).
+
+  Step 1 -- Start from the output formula and set O = N:
+
+                                             N = (N + 2P − F) / (S) + 1
+
+  Step 2 -- With S = 1, simplify:
+
+                           N − 1 = N + 2P − F ⟹ 2P = F − 1 ⟹ P = (F − 1) / (2)
+
+  Step 3 -- Substitute F = 3:
+
+                                                  P = (3 − 1) / 2 = 1
+
+  Step 4 -- Verify by plugging back in:
+
+                                    O = ((5 + 2×1 − 3) / 1) + 1 = (4/1) + 1 = 5 ✓
+
+  Significance: the neat formula P = (F−1)/2 only gives a whole number when F is odd -- this is exactly
+  why almost all CNN filters use odd sizes (3×3, 5×5, 7×7).
+
+
+
+3.5 Worked Example -- Effect of Stride
+
+  Example 3.2 -- Output Size with Stride 2
+  (a) Given: N=7, F=3, S=2, P=0.
+
+                                     O = ⌊(7 − 3)/2⌋ + 1 = ⌊4/2⌋ + 1 = 2 + 1 = 3
+
+  (b) Given: N=9, F=3, S=2, P=1.
+
+                                O = ⌊(9 + 2 − 3)/2⌋ + 1 = ⌊8/2⌋ + 1 = 4 + 1 = 5
+
+  Significance: a larger stride skips positions, so the filter is applied fewer times -- the feature map
+  shrinks faster, computation drops, but some fine spatial detail can be lost.
+
+
+
+3.6 Receptive Field -- Why Stacking Small Filters Works So Well
+  ● Receptive field = the region of the original input image that a given output neuron is influenced by.
+  ● Even though each individual filter may be small (e.g. 3×3), stacking several conv layers makes the
+    effective receptive field grow with depth.
+For stride-1 layers, each additional F×F conv layer grows the receptive field by (F−1):
+
+                                                 RFout = RFin + (F − 1)
+
+
+
+
+                                          Page 9 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                             Unit: Convolutional Neural Networks
+
+
+  Example 3.3 -- Receptive Field of Three Stacked 3×3 Convolutions
+  Layer 1 (3×3): RF = 3
+
+  Layer 2 (3×3): RF = 3 + (3−1) = 5
+
+  Layer 3 (3×3): RF = 5 + (3−1) = 7
+
+  Compare with a single 7×7 convolution: it also has RF = 7 -- the same receptive field! But look at the
+  parameter cost, for C input/output channels at every layer:
+
+                            3 × (3×3×C×C) = 27C² vs. 1 × (7×7×C×C) = 49C²
+
+  With C = 64: 27×64² = 110,592 parameters vs. 49×64² = 200,704 parameters -- the stacked 3×3 filters
+  use only about 55% as many parameters (≈45% fewer).
+
+  Significance: three small filters reach the same receptive field as one big filter, with fewer
+  parameters AND two extra ReLU non-linearities in between (making the network more expressive).
+  This is precisely the design idea behind VGG (Section 10.2).
+
+
+
+
+4. Pooling
+
+4.1 Why Pooling?
+  ● Pooling reduces the spatial size (height, width) of feature maps, cutting computation and the
+    number of parameters needed in later layers.
+  ● It provides a small amount of translation invariance -- a tiny shift in the input barely changes the
+    pooled output.
+  ● It helps control overfitting by summarising a region instead of keeping every precise activation
+    value.
+  ● Important exam point: pooling has no learnable parameters -- it is a fixed mathematical operation
+    (max or mean), unlike a convolution layer which has learnable weights and a bias.
+
+4.2 Types of Pooling
+  ● Max Pooling: takes the maximum value inside each window -- keeps the strongest / most 'present'
+    activation.
+  ● Average Pooling: takes the mean value inside each window -- produces a smoother, less peaky
+    summary.
+  ● Global Average Pooling (GAP): an extreme case that pools an entire feature map down to a single
+    number per channel. Used in modern architectures (GoogLeNet, ResNet) right before the final
+    classifier, in place of a large Flatten + Dense combination (see Example 4.2).
+
+4.3 Worked Example -- Max and Average Pooling
+
+
+
+                                      Page 10 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                   Unit: Convolutional Neural Networks
+
+
+
+
+     Figure 4.1: A 4×4 input reduced by 2×2 pooling with stride 2. Each coloured 2×2 block becomes one output value.
+
+
+  Example 4.1 -- Compute Max Pooling and Average Pooling
+  Given: 4×4 input (Figure 4.1), pooling window 2×2, stride 2.
+
+  Step 1 -- Top-left window {1, 3, 5, 6}:
+
+                                max = 6        mean = (1+3+5+6)/4 = 15/4 = 3.75
+
+  Step 2 -- Top-right window {2, 4, 1, 2}:
+
+                                 max = 4        mean = (2+4+1+2)/4 = 9/4 = 2.25
+
+  Step 3 -- Bottom-left window {2, 4, 0, 1}:
+
+                                 max = 4        mean = (2+4+0+1)/4 = 7/4 = 1.75
+
+  Step 4 -- Bottom-right window {3, 1, 2, 5}:
+
+                                max = 5        mean = (3+1+2+5)/4 = 11/4 = 2.75
+
+  Result -- Max-pooled output: [[6, 4], [4, 5]]         Average-pooled output: [[3.75, 2.25], [1.75, 2.75]]
+
+
+
+4.4 Output-Size Formula for Pooling
+Pooling uses the same size formula as convolution, with padding almost always 0:
+
+                                                 O = (N − F) / (S) + 1
+
+Check against Figure 4.1: N=4, F=2, S=2 ⟹ O = (4−2)/2 + 1 = 1 + 1 = 2, giving the 2×2 output shown
+above.
+
+4.5 Max Pooling vs. Average Pooling -- When to Use Which
+
+            Aspect                            Max Pooling                                   Average Pooling
+
+ What it keeps                 The strongest activation in the window            The overall / smoothed activation
+
+                                          Page 11 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                Unit: Convolutional Neural Networks
+
+
+            Aspect                        Max Pooling                                    Average Pooling
+
+                            Highlights sharp features (edges,
+ Sensitivity                                                                 Less sensitive to noise / outliers
+                            textures)
+
+                            Hidden layers (classic CNNs: AlexNet,
+ Typical placement                                                           Final layer, as Global Average Pooling
+                            VGG)
+
+                                                                             Gradient is spread equally to all
+ Gradient flow (backprop)   Gradient flows only to the max element
+                                                                             elements
+
+
+
+  Example 4.2 -- Parameter Savings from Global Average Pooling
+  Given: the last conv feature map is 7×7×512 (as in VGG16), and we need to connect it to a 1000-class
+  output.
+
+  Option A -- Flatten + Dense: flatten to 7×7×512 = 25,088 values, then a dense layer maps this to
+  4096 units.
+
+                            Params = 25,088 × 4096 + 4096 = 102,764,544
+
+  Option B -- Global Average Pooling: average each of the 512 channels over all 7×7=49 positions →
+  512 numbers (zero learnable parameters), then connect directly to 1000 outputs.
+
+                                 Params = 512 × 1000 + 1000 = 513,000
+
+  Significance: GAP needs roughly 200× fewer parameters at the classifier head, which is exactly why
+  GoogLeNet and ResNet use it instead of large fully-connected stacks -- it also reduces overfitting
+  substantially.
+
+
+
+
+5. Training a ConvNet
+
+5.1 The Training Loop -- Overview
+Training a CNN means repeatedly adjusting every filter weight and bias so that the network's predictions
+get closer to the true labels. This happens in a four-step loop, repeated for every mini-batch, for many
+epochs:
+
+
+
+
+                                      Page 12 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                Unit: Convolutional Neural Networks
+
+
+
+
+Figure 5.1: The training loop -- forward pass, loss computation, backward pass, and weight update, repeated every mini-
+                                                          batch.
+
+  ● 1. Forward Pass -- push a batch of images through every conv, pooling, and FC layer to get
+    predictions.
+  ● 2. Compute Loss -- compare the predictions with the true labels using a loss function L.
+  ● 3. Backward Pass (Backpropagation) -- use the chain rule to compute the gradient of the loss with
+    respect to every weight in the network.
+  ● 4. Update Weights (Gradient Descent) -- nudge every weight a small step in the direction that
+    reduces the loss.
+
+5.2 Loss Functions
+  ● Cross-Entropy Loss -- the standard choice for classification. For C classes with true one-hot label y
+    and predicted probabilities ŷ (from softmax):
+
+                                                 L = −Σc=1C yc log(ŷc)
+
+  ● Mean Squared Error (MSE) -- common for regression, and useful for building intuition since its
+    derivative is simple:
+
+                                                 L = (1) / (2)(y − ŷ)2
+
+5.3 Backpropagation -- The Chain Rule
+  ● Backpropagation computes ∂L/∂w (how much the loss changes if a weight w changes) for every
+    weight in the network, working backwards from the output.
+  ● Each layer only needs two things: the gradient arriving from the layer in front of it (the upstream
+    gradient), and its own local derivative. Multiplying these together (the chain rule) gives the gradient
+    to pass further back.
+                                         Page 13 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                 Unit: Convolutional Neural Networks
+
+  ● This is why deep networks are trainable at all -- a complicated end-to-end derivative is broken into
+    a product of simple, local derivatives, one layer at a time.
+
+5.4 Worked Example -- Forward Pass, Loss, and Backward Pass
+
+  Example 5.1 -- Full Forward + Backward Pass for One Neuron
+  Given: a single neuron with sigmoid activation. Input x=2, weight w=0.5, bias b=0.1, target y=1,
+  learning rate η=0.1.
+
+  Sigmoid activation:
+
+                                               a = σ(z) = (1) / (1 + e−z)
+
+  STEP 1 -- Forward pass: compute z
+
+                                          z = wx + b = (0.5)(2) + 0.1 = 1.1
+
+  STEP 2 -- Forward pass: apply the activation
+
+                               a = σ(1.1) = 1 / (1 + e−1.1) = 1 / (1 + 0.3329) ≈ 0.7503
+
+  STEP 3 -- Compute the loss (MSE)
+
+                        L = (1) / (2)(y − a2) = 0.5 × (1 − 0.7503)2 = 0.5 × (0.2497)2 ≈ 0.0312
+
+  STEP 4 -- Backward pass: apply the chain rule
+
+  We need ∂L/∂w. The chain rule breaks it into three easy local derivatives:
+
+                                (∂L) / (∂w) = (∂L) / (∂a) × (∂a) / (∂z) × (∂z) / (∂w)
+
+     ● ∂L/∂a = −(y − a) = −(1 − 0.7503) = −0.2497 (derivative of the MSE loss)
+     ● ∂a/∂z = a(1 − a) = 0.7503 × 0.2497 ≈ 0.1874 (the well-known derivative of the sigmoid
+       function)
+     ● ∂z/∂w = x = 2 (since z = wx + b)
+
+                                   (∂L) / (∂w) = (−0.2497)(0.1874)(2) ≈ −0.0936
+
+  STEP 5 -- Update the weight (gradient descent)
+
+                             wnew = w − η (∂L) / (∂w) = 0.5 − (0.1)(−0.0936) = 0.5094
+
+  A similar calculation gives ∂L/∂b = −0.0468 (since ∂z/∂b = 1), so bnew = 0.1 − (0.1)(−0.0468) = 0.1047.
+
+  Significance: the weight moved from 0.5 to 0.5094 -- a small step in the direction that would have
+  made 'a' closer to the target y=1. Repeating this thousands of times, on thousands of examples, is
+  literally what 'training' a network means.
+
+
+
+5.5 Backpropagation Through a Convolution Layer (Concept)
+  ● A full symbolic derivation is lengthy, but the result is elegant and worth remembering:
+    backpropagation through a convolution layer is itself another convolution.
+
+
+
+                                          Page 14 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                               Unit: Convolutional Neural Networks
+
+  ● Gradient w.r.t. the filter weights: obtained by convolving the layer's input with the upstream
+    gradient (the error signal flowing back from the next layer).
+  ● Gradient w.r.t. the input (passed further back): obtained by convolving the upstream gradient
+    with the filter rotated by 180°.
+  ● Because of parameter sharing, the same filter is used at every spatial position during the forward
+    pass, so its gradient is the sum of the contributions from every position it was applied to.
+  ● Pooling layers have no weights to update; they simply route the gradient back to whichever input
+    produced the pooled output (for max pooling, all the gradient goes to the single max element; for
+    average pooling, it is split equally among all elements in the window).
+
+5.6 Gradient Descent Variants
+
+                Variant                        Update uses...                                  Trade-off
+
+                                                                                 Stable direction, but slow and
+ Batch Gradient Descent            The entire training set, per update
+                                                                                 memory-heavy
+
+                                   One randomly chosen example, per              Very fast updates, but noisy /
+ Stochastic GD (SGD)
+                                   update                                        erratic path
+
+                                   A small batch (e.g. 32, 64, 128               The practical standard -- balances
+ Mini-batch Gradient Descent
+                                   examples)                                     speed and stability
+In practice, mini-batch gradient descent is almost always combined with an adaptive optimizer
+(Momentum, RMSProp, or Adam) that adjusts the effective learning rate per parameter -- see Section 9
+(Hyperparameter Optimization).
+
+
+
+
+6. Weight Initialization
+
+6.1 Why Does Initialization Matter?
+  ● Before training starts, every weight must be set to some initial value. This starting point has a big
+    effect on how well, and how fast, the network learns.
+  ● Zero initialization is broken -- the symmetry problem: if every weight in a layer starts at exactly 0
+    (or any other identical constant), every neuron in that layer computes the exact same output and
+    receives the exact same gradient during backprop. They then update identically forever -- the layer
+    can never break this symmetry, so it behaves like a single neuron no matter how many it actually
+    has.
+  ● Random initialization breaks symmetry, but the scale of the random numbers still matters
+    enormously: too large and activations/gradients can explode layer after layer; too small and they
+    can vanish to near-zero in deep networks.
+
+6.2 Xavier / Glorot Initialization
+  ● Designed for tanh / sigmoid activations. The goal is to keep the variance of activations (and
+    gradients) roughly constant as signals pass through layers, so nothing explodes or vanishes.
+
+                                     Page 15 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                Unit: Convolutional Neural Networks
+
+  ● Weights are sampled from a distribution with mean 0 and the following variance, where nin is the
+    number of inputs to the layer (fan-in):
+
+                            Var(W) = (1) / (nin)         ⟹         std(W) = √((1) / (nin))
+
+6.3 He Initialization
+  ● Designed for ReLU (and its variants). Since ReLU zeroes out roughly half of its inputs on average, He
+    initialization uses double the variance of Xavier to compensate, keeping the signal's variance stable
+    across layers:
+
+                            Var(W) = (2) / (nin)         ⟹         std(W) = √((2) / (nin))
+
+6.4 Worked Example -- Comparing Xavier and He
+
+  Example 6.1 -- Standard Deviation for a Layer with 256 Inputs
+  Given: a layer with nin = 256 incoming connections.
+
+  (a) Xavier initialization (use if this layer is followed by tanh / sigmoid):
+
+                           std(W) = √((1) / (256)) = √(0.003906) = 1/16 = 0.0625
+
+  (b) He initialization (use if this layer is followed by ReLU):
+
+                              std(W) = √((2) / (256)) = √(0.0078125) ≈ 0.0884
+
+  Significance: He initialization gives a std-dev about √2 ≈ 1.41× larger than Xavier for the same layer.
+  Using the wrong one is not fatal, but using Xavier with ReLU tends to make activations shrink toward
+  zero over many layers, slowing training -- matching the initializer to the activation function
+  measurably helps deep networks converge.
+
+
+
+6.5 Quick Comparison
+
+        Method               Formula (std-dev)                Best paired with               Problem it solves
+
+                                                                                     N/A (causes the symmetry
+ Zero init              std = 0                           Never -- always broken
+                                                                                     problem)
+
+ Plain random                                                                        Breaks symmetry, but scale is
+                        e.g. std = 1 (fixed)              Not recommended
+ (unscaled)                                                                          untuned
+
+                                                                                     Keeps variance stable for S-
+ Xavier / Glorot        std = √(1/nin)                    tanh, sigmoid
+                                                                                     shaped activations
+
+                                                                                     Compensates for ReLU zeroing
+ He                     std = √(2/nin)                    ReLU, Leaky ReLU
+                                                                                     ≈half the units
+
+
+
+
+7. Batch Normalization
+
+7.1 Why Batch Normalization?
+                                         Page 16 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                 Unit: Convolutional Neural Networks
+
+  ● Internal covariate shift: as training progresses, the parameters of every earlier layer keep changing,
+    so the distribution of inputs reaching each later layer keeps shifting too. Each layer is constantly
+    having to re-adapt to a moving target, which slows training and forces the use of small, cautious
+    learning rates.
+  ● Batch Normalization (BN) normalizes a layer's activations, across the current mini-batch, to zero
+    mean and unit variance, and then lets the network learn its own best scale and shift for them.
+  ● Extra benefits: allows noticeably higher learning rates, reduces sensitivity to the exact weight
+    initialization used, and acts as a mild regularizer (the mini-batch statistics add a small amount of
+    noise).
+
+7.2 The Four Steps of Batch Normalization
+
+
+
+
+              Figure 7.1: The batch normalization pipeline, applied independently to each channel / feature.
+
+Step 1 -- Compute the mini-batch mean (over the m examples in the batch):
+
+                                                  μ = (1) / (m)Σi=1m xi
+
+Step 2 -- Compute the mini-batch variance:
+
+                                              σ2 = (1) / (m)Σi=1m (xi − μ)2
+
+Step 3 -- Normalize (ε is a tiny constant, e.g. 1e-8, added only to avoid dividing by zero):
+
+                                               zi = (xi − μ) / (√(σ2 + ε))
+
+Step 4 -- Scale and shift using two learnable parameters γ and β (so the network can undo the
+normalization if that turns out to be optimal):
+
+                                                       yi = γ zi + β
+
+7.3 Worked Numerical Example
+
+                                          Page 17 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                 Unit: Convolutional Neural Networks
+
+
+  Example 7.1 -- Batch-Normalize Four Activation Values
+  Given: a mini-batch of 4 activations x = [2, 4, 6, 8], with learnable γ = 2, β = 1 (ignore ε, it is negligible
+  here).
+
+  Step 1 -- Mean:
+
+                                            μ = (2+4+6+8)/4 = 20/4 = 5
+
+  Step 2 -- Variance:
+
+                        σ2 = [(2−5)2 + (4−5)2 + (6−5)2 + (8−5)2] / 4 = [9+1+1+9]/4 = 20/4 = 5
+
+  Step 3 -- Normalize each value (divide by √5 ≈ 2.2361):
+
+                           z1 = (2−5)/2.2361 ≈ −1.3416          z2 = (4−5)/2.2361 ≈ −0.4472
+
+                            z3 = (6−5)/2.2361 ≈ 0.4472          z4 = (8−5)/2.2361 ≈ 1.3416
+
+  Step 4 -- Scale (×2) and shift (+1):
+
+                          y1 = 2(−1.3416)+1 ≈ −1.6833             y2 = 2(−0.4472)+1 ≈ 0.1056
+
+                            y3 = 2(0.4472)+1 ≈ 1.8944             y4 = 2(1.3416)+1 ≈ 3.6833
+
+  Significance: notice the normalized values z have mean 0 and variance 1 by construction -- BN
+  guarantees this for every layer, every mini-batch, regardless of what came before. The learned γ, β
+  then let the network re-scale this standardized signal to whatever range works best.
+
+
+
+7.4 Batch Normalization at Test / Inference Time
+  ● At test time we may be predicting on a single example -- there is no 'batch' to compute a mean and
+    variance from.
+  ● Solution: during training, BN keeps a running (moving) average of the mean and variance seen
+    across all mini-batches. At test time, this fixed running average is used instead of a fresh batch
+    statistic -- so inference is deterministic and works even for a single input.
+
+7.5 Where Does BN Go in the Layer Stack?
+  ● The standard placement (from the original paper) is: Convolution → Batch Norm → ReLU --
+    normalize the raw linear output before the non-linearity is applied.
+  ● Because BN re-centres the output anyway, the convolution's bias term becomes redundant and is
+    usually dropped when BN is used.
+
+
+
+
+8. Dropout
+
+8.1 The Overfitting Problem
+
+
+
+                                          Page 18 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                  Unit: Convolutional Neural Networks
+
+  ● Large networks with many parameters can end up memorising the training data instead of learning
+    patterns that generalise -- especially when training data is limited. This is called overfitting.
+  ● Dropout is a simple and remarkably effective way to fight overfitting.
+
+8.2 How Dropout Works
+
+
+
+
+           Figure 8.1: With dropout, a different random subset of neurons is switched off on every training pass.
+
+  ● During training, each neuron in the layer(s) where dropout is applied is temporarily switched off
+    (its output forced to 0) with probability p, independently, on every forward pass.
+  ● A different random subset is dropped each time. This stops neurons from co-adapting (relying too
+    heavily on one specific other neuron always being present), forcing each neuron to learn features
+    that are useful in many different random combinations.
+  ● Dropout can be viewed as implicitly training a huge number of different 'thinned' sub-networks
+    simultaneously, all sharing the same weights, and then approximately averaging them at test time.
+
+8.3 Inverted Dropout -- The Scaling Trick
+  ● If we simply zero out a fraction p of the neurons during training, the total signal reaching the next
+    layer shrinks. But at test time we want to use the full network (no dropping) -- which would
+    suddenly produce a larger total signal than the next layer ever saw during training. This mismatch
+    would hurt accuracy.
+  ● Inverted dropout fixes this: during training, the surviving activations are scaled up by 1/(1−p) (i.e.
+    divided by the keep-probability) immediately after masking. This keeps the expected total signal the
+    same as it will be at test time -- so at test time, nothing needs to change at all; the full network is
+    simply used as-is.
+
+8.4 Worked Example
+
+
+
+                                           Page 19 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                   Unit: Convolutional Neural Networks
+
+
+  Example 8.1 -- Applying Inverted Dropout
+  Given: 5 neuron activations [0.5, 0.8, 0.3, 0.9, 0.6], dropout rate p = 0.4 (so keep-probability = 1−p =
+  0.6). Suppose the random mask happens to drop neurons 2 and 5.
+
+  Step 1 -- Apply the binary mask [1, 0, 1, 1, 0] (multiply element-wise):
+
+                              [0.5×1, 0.8×0, 0.3×1, 0.9×1, 0.6×0] = [0.5, 0, 0.3, 0.9, 0]
+
+  Step 2 -- Scale the surviving values by 1/(1−p) = 1/0.6 ≈ 1.667:
+
+                        [0.5×1.667, 0, 0.3×1.667, 0.9×1.667, 0] = [0.833, 0, 0.500, 1.500, 0]
+
+  Significance: at test time, all 5 neurons are used with no dropping and no scaling at all -- the scaling
+  was already 'baked in' during training. This is exactly why the technique is called inverted dropout:
+  the original (1D-dropout) formulation instead scaled activations down at test time, which was less
+  convenient for deployment.
+
+
+
+8.5 Where and How to Use Dropout
+  ● Most commonly applied to fully connected layers, which hold the majority of a CNN's parameters
+    and are most prone to overfitting.
+  ● Used more sparingly (or skipped) in convolution layers, since weight sharing already gives conv
+    layers far fewer parameters.
+  ● Typical rates: p ≈ 0.5 for FC layers; p ≈ 0.1–0.25 for conv layers, if used at all.
+  ● Never active at test / inference time -- the complete, un-thinned network is always used for
+    predictions.
+
+
+
+
+9. Hyperparameter Optimization
+
+9.1 What Is a Hyperparameter?
+  ● Hyperparameters are settings chosen before training begins -- learning rate, batch size, number of
+    layers, filter size, dropout rate, and so on. They are not learned by gradient descent.
+  ● This is different from parameters (the filter weights and biases), which are learned automatically
+    from data during training.
+  ● Good hyperparameters can be the difference between a model that trains beautifully and one that
+    never converges at all -- tuning them is a core part of applied deep learning.
+
+9.2 Common CNN Hyperparameters
+
+       Hyperparameter                      Typical values                               Effect
+
+                                                                          Step size; too high diverges, too
+ Learning rate (η)                1e-5 to 1e-1 (often start at 1e-3)
+                                                                          low is very slow
+
+
+
+                                           Page 20 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                  Unit: Convolutional Neural Networks
+
+
+       Hyperparameter                    Typical values                               Effect
+
+                                                                        Trade-off: gradient
+ Batch size                 16, 32, 64, 128, 256                        stability/memory vs. update
+                                                                        speed
+
+                                                                        How many full passes over the
+ Number of epochs           Chosen via early stopping
+                                                                        training data
+
+                                                                        More capacity, but harder to
+ Network depth              Varies by architecture
+                                                                        optimize / needs more data
+
+                                                                        Larger = bigger receptive field per
+ Filter size                3×3, 5×5, 7×7
+                                                                        layer, more params
+
+                                                                        More filters = richer features,
+ Filters per layer          32, 64, 128, 256, 512 ...
+                                                                        more compute
+
+                                                                        Controls how aggressively the
+ Stride                     1 or 2 (usually)
+                                                                        map is downsampled
+
+ Dropout rate p             0.2 -- 0.5                                  Regularization strength
+
+                                                                        Regularization strength (penalizes
+ Weight decay (L2)          1e-5 to 1e-3
+                                                                        large weights)
+
+                            SGD, Momentum, RMSProp,                     Affects convergence speed and
+ Optimizer
+                            Adam                                        stability
+
+
+
+
+9.3 Hyperparameter Search Strategies
+  ● Manual search: expert intuition and trial-and-error. Cheap per trial but does not scale and is easy
+    to bias.
+  ● Grid Search: pick a discrete set of values for each hyperparameter and try every combination
+    exhaustively. Simple, but suffers badly from the 'curse of dimensionality' (see Example 9.1).
+  ● Random Search: sample combinations randomly from specified ranges. Often more efficient than
+    grid search in practice, because usually only a few hyperparameters actually matter much, and
+    random sampling explores each dimension more thoroughly for the same budget.
+  ● Bayesian Optimization: builds a probabilistic model of how hyperparameters affect validation
+    performance, and uses it to intelligently pick the next combination to try -- balancing exploring
+    uncertain regions against exploiting regions already known to work well. Much more sample-
+    efficient when each training run is expensive.
+
+
+
+
+                                         Page 21 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                              Unit: Convolutional Neural Networks
+
+
+  Example 9.1 -- Why Grid Search Doesn't Scale
+  Given: a search over 4 learning rates × 3 batch sizes × 3 dropout rates × 2 optimizers, with each full
+  training run taking 2 hours.
+
+  Step 1 -- Total combinations (grid search tries all of them):
+
+                                     4 × 3 × 3 × 2 = 72 combinations
+
+  Step 2 -- Total compute time:
+
+                          72 × 2 hours = 144 hours (6 full days, on one machine)
+
+  Significance: adding just one more hyperparameter with 3 values would multiply this by 3 again (432
+  hours). This explosive growth is exactly why random search or Bayesian optimization is preferred
+  once the search space grows beyond 2-3 hyperparameters.
+
+
+
+9.4 Learning Rate -- The Single Most Important Hyperparameter
+  ● Too high: the loss oscillates wildly or diverges outright -- each update overshoots the minimum.
+  ● Too low: training crawls, and optimization can get stuck in poor regions of the loss surface.
+  ● Learning-rate scheduling is standard practice: start with a larger learning rate for fast early
+    progress, then decrease it over time (step decay, exponential decay, or cosine annealing) so
+    training fine-tunes precisely as it approaches a good solution.
+
+9.5 Early Stopping and Cross-Validation
+  ● Early stopping: monitor the validation loss during training and stop once it stops improving (even if
+    the training loss keeps falling). This is effectively free regularization and doubles as a way of
+    choosing 'number of epochs' automatically.
+  ● k-fold cross-validation: for smaller datasets, split the data into k folds, train k times (holding out a
+    different fold each time for validation), and average the results. Gives a far more reliable estimate
+    of how a hyperparameter choice will generalize, at roughly k× the compute cost.
+
+
+
+
+10. CNN Architectures
+
+10.1 Overview
+Four architectures mark the key milestones in the evolution of modern CNN design. Each one introduced
+at least one idea that is still used in virtually every network built today.
+
+               Architecture                    Year                               Headline Idea
+
+ AlexNet                                2012                   Proved deep CNNs + GPU training work at scale
+
+ VGG                                    2014                   Depth with small, uniform 3×3 filters
+
+ GoogLeNet (Inception)                  2014                   Multi-scale Inception module + 1×1 bottlenecks
+
+
+                                      Page 22 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                     Unit: Convolutional Neural Networks
+
+
+               Architecture                            Year                               Headline Idea
+
+ ResNet                                        2015                    Residual / skip connections enable extreme depth
+
+
+
+
+10.2 AlexNet (2012)
+  ● Krizhevsky, Sutskever and Hinton's AlexNet won ILSVRC-2012 (the ImageNet competition) by a
+    huge margin, and is widely credited with igniting the modern deep-learning revolution in computer
+    vision.
+  ● Key firsts introduced / popularised:
+        ◦ ReLU activation instead of tanh/sigmoid -- trains dramatically faster.
+        ◦ Trained across 2 GPUs in parallel -- an early proof that GPU compute is essential at this scale.
+        ◦ Dropout in the FC layers to fight overfitting.
+        ◦ Data augmentation (random crops, horizontal flips) to artificially enlarge the training set.
+        ◦ Overlapping max pooling (pooling stride smaller than the pooling window).
+
+
+
+
+                        Figure 10.1: AlexNet -- 5 convolution layers followed by 3 fully-connected layers.
+
+
+
+
+                                              Page 23 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                     Unit: Convolutional Neural Networks
+
+
+                  Depth                                 Parameters                           ImageNet Top-5 Error
+
+                                                                                       15.3% (next-best that year: ≈
+ 8 learned layers (5 conv + 3 FC)          ≈ 60 million
+                                                                                       26.2%)
+
+
+
+
+10.3 VGGNet (2014)
+  ● Simonyan and Zisserman (Oxford's Visual Geometry Group, hence 'VGG') showed that depth alone,
+    built from very small filters, could push accuracy much further.
+  ● Central design rule: use only 3×3 convolutions (stride 1, pad 1) and 2×2 max pooling (stride 2),
+    stacked many layers deep. As shown in Example 3.3, three stacked 3×3 convs match the receptive
+    field of one 7×7 conv with far fewer parameters and extra non-linearity -- this is precisely VGG's
+    design philosophy applied throughout the whole network.
+  ● VGG16 (13 conv + 3 FC = 16 weight layers) and VGG19 (19 weight layers) are the common variants.
+
+
+
+
+              Figure 10.2: VGG16 -- five blocks of small 3×3 convolutions, each followed by 2×2 max pooling.
+
+
+              Depth                                     Parameters                                ImageNet Top-5 Error
+
+                                    ≈ 138 million (mostly in the FC layers -- recall
+ 16 weight layers                                                                             ≈ 7.3%
+                                    Example 4.2)
+
+
+
+
+                                           Page 24 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                 Unit: Convolutional Neural Networks
+
+  ● Downside: VGG is large and slow, mainly because of its huge fully-connected layers -- exactly the
+    inefficiency that GoogLeNet and ResNet were designed to fix.
+
+10.4 GoogLeNet / Inception (2014)
+  ● Szegedy et al. (Google) won ILSVRC-2014 with a radically different idea: instead of picking one filter
+    size per layer, run several filter sizes in parallel on the same input and let the network combine
+    them.
+
+
+
+
+        Figure 10.3: One Inception module -- 1×1, 3×3, 5×5 and pooling branches run in parallel, then concatenate.
+
+  ● 1×1 bottleneck convolutions shrink the channel depth before the expensive 3×3 / 5×5 convolutions
+    run -- this single trick is what keeps Inception affordable (see Example 10.1).
+  ● 22 layers deep, yet only ≈ 5 million parameters -- far fewer than AlexNet (60M) or VGG (138M)
+    despite being much deeper, thanks to the 1×1 bottlenecks and to replacing the huge final FC stack
+    with Global Average Pooling (Example 4.2).
+  ● Uses auxiliary classifiers -- small extra classifier heads attached partway through the network, used
+    only during training to inject additional gradient signal into early layers (removed at inference).
+
+
+
+
+                                          Page 25 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                Unit: Convolutional Neural Networks
+
+
+  Example 10.1 -- Why the 1×1 Bottleneck Matters
+  Given: input volume 28×28×192. We want a 5×5 convolution producing 32 output channels.
+
+  Option A -- Direct 5×5 convolution (no bottleneck):
+
+                                    Params = 5×5×192×32 = 153,600
+
+  Option B -- 1×1 bottleneck (192→16 channels) then 5×5 convolution (16→32 channels):
+
+                                      1×1 conv: 1×1×192×16 = 3,072
+
+                                      5×5 conv: 5×5×16×32 = 12,800
+
+                                     Total = 3,072 + 12,800 = 15,872
+
+  Step -- Compare: 153,600 / 15,872 ≈ 9.7
+
+  Significance: the bottleneck design uses roughly 10× fewer parameters (a ≈90% reduction) for
+  essentially the same convolution -- this is what lets Inception be simultaneously deeper and
+  dramatically smaller than VGG.
+
+              Depth                            Parameters                                  ImageNet Top-5 Error
+
+ 22 layers                     ≈ 5 million                                        ≈ 6.7%
+
+
+
+
+10.5 ResNet (2015)
+  ● He, Zhang, Ren and Sun (Microsoft Research) won ILSVRC-2015 with a top-5 error of 3.57% --
+    surpassing the commonly-cited human-level benchmark (≈5%) on this task.
+  ● The problem it solves -- degradation: past a certain depth, plain (non-residual) networks get worse
+    with more layers -- not from overfitting, but because they become genuinely harder to optimize
+    (vanishing / exploding gradients through so many stacked layers).
+  ● Central idea -- residual (skip) connections: instead of a block learning the full mapping H(x)
+    directly, it learns only the residual F(x) = H(x) − x, and the block outputs F(x) + x by adding the
+    untouched input back in via a shortcut that bypasses the block.
+
+
+
+
+                                      Page 26 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                     Unit: Convolutional Neural Networks
+
+
+
+
+        Figure 10.4: A residual block -- the identity shortcut lets gradients skip straight past the two weight layers.
+
+  ● Why it works: the addition operation has a local gradient of exactly 1 along the shortcut path, so
+    gradients can flow all the way back to early layers without shrinking -- this keeps even extremely
+    deep networks (50, 101, 152, and beyond) trainable.
+  ● Bottleneck blocks: deeper variants (ResNet-50/101/152) use a 1×1 → 3×3 → 1×1 bottleneck inside
+    each residual block -- the same channel-reduction trick as Inception's 1×1 convolutions -- to keep
+    compute manageable at such extreme depth.
+  ● Common variants: ResNet-18 / 34 (basic 2-layer blocks) and ResNet-50 / 101 / 152 (3-layer
+    bottleneck blocks). ResNet-50 has ≈ 25.6 million parameters.
+
+                  Depth                                    Parameters                          ImageNet Top-5 Error
+
+ Up to 152 layers (ResNet-152)              ≈ 60 million (ResNet-152)                   3.57%
+
+
+
+
+10.6 Side-by-Side Comparison
+
+    Architecture           Year           Depth           Parameters           Top-5 Error            Key Innovation
+
+                                                                                                ReLU, Dropout, GPU
+ AlexNet                  2012       8 layers            ≈ 60M               15.3%
+                                                                                                training
+
+                                                                                                Deep stack of small 3×3
+ VGG-16                   2014       16 layers           ≈ 138M              ≈ 7.3%
+                                                                                                filters
+
+
+
+
+                                            Page 27 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                      Unit: Convolutional Neural Networks
+
+
+    Architecture            Year         Depth           Parameters           Top-5 Error              Key Innovation
+
+                                                                                                 Inception module + 1×1
+ GoogLeNet                 2014      22 layers          ≈ 5M                ≈ 6.7%
+                                                                                                 bottlenecks
+
+ ResNet-152                2015      152 layers         ≈ 60M               3.57%                Residual / skip connections
+
+
+
+
+10.7 The Big Picture -- How These Ideas Build on Each Other
+  ● AlexNet proved that deep CNNs trained on GPUs could dramatically beat traditional computer-
+    vision methods.
+  ● VGG proved that going deeper, using small and uniform filters, reliably improves accuracy -- and
+    that simple, regular designs transfer well to new tasks.
+  ● GoogLeNet proved that clever, efficient module design (multi-scale filters + 1×1 bottlenecks) can
+    beat brute-force scaling -- more accurate than VGG with roughly 27× fewer parameters.
+  ● ResNet proved that residual connections solve the degradation problem, finally unlocking truly
+    deep networks (100+ layers) as practical and trainable -- an idea now used almost everywhere in
+    deep learning, well beyond CNNs (e.g. Transformers).
+
+
+
+
+11. Summary / Quick Revision Tables
+
+A condensed, exam-ready reference covering every formula and concept from this unit.
+
+11.1 Key Formulas at a Glance
+
+                        Concept                                                        Formula
+
+ Conv / Pool output size                            O = ⌊(N + 2P − F)/S⌋ + 1
+
+ Convolution layer parameters                       (F×F×C_in + 1) × K (K = number of filters)
+
+ 'Same' padding (stride 1)                          P = (F − 1) / 2
+
+ Receptive field growth (stride 1)                  RF_out = RF_in + (F − 1)
+
+ Xavier / Glorot init (tanh, sigmoid)               std(W) = √(1 / n_in)
+
+ He init (ReLU)                                     std(W) = √(2 / n_in)
+
+ Batch norm -- normalize                            z_i = (x_i − μ) / √(σ² + ε)
+
+ Batch norm -- scale & shift                        y_i = γ z_i + β
+
+ Inverted dropout scaling                           activation ÷ (1 − p), applied during training only
+
+ Gradient descent update                            w ← w − η (∂L/∂w)
+
+
+
+
+11.2 Which Layers Have Learnable Parameters?
+
+                                           Page 28 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                               Unit: Convolutional Neural Networks
+
+
+               Layer                Learnable parameters?                                  Notes
+
+                                                                       Weights are shared across every spatial
+ Convolution                   Yes -- filter weights + bias
+                                                                       position
+
+                                                                       A fixed mathematical operation, nothing to
+ Pooling (Max / Average)       No
+                                                                       learn
+
+                                                                       Running mean / variance are tracked but not
+ Batch Normalization           Yes -- γ and β
+                                                                       learned by gradient descent
+
+                                                                       Just applies a random binary mask at train
+ Dropout                       No
+                                                                       time
+
+                                                                       Every input unit connects to every output
+ Fully Connected (Dense)       Yes -- weights + bias
+                                                                       unit
+
+
+
+
+11.3 CNN Architectures at a Glance
+
+               Architecture                  Year                                 Signature Idea
+
+ AlexNet                               2012               ReLU + Dropout + GPU training at scale
+
+ VGG                                   2014               Very deep stack of small, uniform 3×3 filters
+
+ GoogLeNet / Inception                 2014               Parallel multi-scale filters + 1×1 bottlenecks + GAP
+
+                                                          Residual (skip) connections solve the degradation
+ ResNet                                2015
+                                                          problem
+
+
+
+
+11.4 Quick Glossary
+  ● Feature map: the output produced by convolving one filter over the input.
+  ● Receptive field: the region of the original input that influences a given output value.
+  ● Stride: the number of pixels the filter moves between applications.
+  ● Padding: extra border pixels (usually zeros) added around the input.
+  ● Epoch: one full pass of the training algorithm over the entire training dataset.
+  ● Overfitting: a model that fits the training data very well but generalizes poorly to new data.
+  ● Regularization: any technique (dropout, weight decay, data augmentation, ...) used to reduce
+    overfitting.
+  ● Backpropagation: the chain-rule algorithm used to compute ∂L/∂w for every weight in the
+    network.
+  ● Logits: the raw, un-normalized output scores of the final layer, before softmax.
+  ● Global Average Pooling (GAP): pools an entire feature map down to a single number per channel;
+    commonly replaces large FC stacks.
+
+
+
+
+                                      Page 29 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                Unit: Convolutional Neural Networks
+
+
+12. Practice Questions
+
+This question bank covers the complete unit: Section A contains 15 multiple-choice questions, and
+Section B contains 35 short-answer, numerical, and descriptive questions. Every question includes a fully
+worked, step-by-step solution.
+
+Section A -- Multiple Choice Questions (15)
+
+
+
+Q1. What is the primary reason a convolution layer needs far fewer parameters than a fully-connected
+layer on the same image?
+      (A) It uses fewer layers overall
+      (B) Weight sharing and local connectivity -- the same small filter is reused at every position
+      (C) It only works on grayscale images
+      (D) It does not use any activation function
+      ✓ Answer: (B) Local connectivity means each neuron only looks at a small patch, and parameter
+      sharing means the same filter weights are reused across every position -- see Example 1.1 (≈4000×
+      fewer parameters).
+
+
+Q2. An input of size 7×7 is convolved with a 3×3 filter, stride 1, no padding. What is the output size?
+      (A) 3×3
+      (B) 4×4
+      (C) 5×5
+      (D) 6×6
+      ✓ Answer: (C) O = (N−F)/S + 1 = (7−3)/1 + 1 = 5, so the output is 5×5.
+
+
+Q3. What is a 'feature map' in a CNN?
+      (A) The raw input image
+      (B) The learnable filter itself
+      (C) The output produced by convolving one filter over the input
+      (D) The final softmax probability vector
+      ✓ Answer: (C) A feature map (activation map) is the 2-D result of sliding one specific filter across
+      the input; a layer with K filters produces K feature maps.
+
+
+Q4. For 'same' padding with stride 1 and a filter size F = 5, what padding P is required?
+      (A) P = 1
+      (B) P = 2
+      (C) P = 3
+      (D) P = 4
+      ✓ Answer: (B) P = (F−1)/2 = (5−1)/2 = 2.
+
+                                         Page 30 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                             Unit: Convolutional Neural Networks
+
+
+Q5. N = 11, F = 3, S = 2, P = 0. What is the output size?
+      (A) 4
+      (B) 5
+      (C) 6
+      (D) 7
+      ✓ Answer: (B) O = ⌊(N−F)/S⌋ + 1 = ⌊(11−3)/2⌋ + 1 = 4 + 1 = 5.
+
+
+Q6. Which statement about pooling layers is TRUE?
+      (A) Pooling layers have learnable weights, just like conv layers
+      (B) Max pooling must always use stride 1
+      (C) Pooling layers have no learnable parameters at all
+      (D) Average pooling cannot be used as the final layer of a CNN
+      ✓ Answer: (C) Pooling is a fixed mathematical operation (max or mean) -- it has no weights or
+      biases to learn. Global Average Pooling is, in fact, commonly used as the final layer in modern
+      architectures.
+
+
+Q7. A 2×2 max-pooling window contains the values {3, 7, 2, 5}. What value does it output?
+      (A) 2
+      (B) 3
+      (C) 5
+      (D) 7
+      ✓ Answer: (D) Max pooling outputs the largest value in the window: max(3,7,2,5) = 7.
+
+
+Q8. Backpropagation computes gradients efficiently by repeatedly applying which mathematical rule?
+      (A) The product rule
+      (B) The chain rule
+      (C) The quotient rule
+      (D) L'Hopital's rule
+      ✓ Answer: (B) Backprop decomposes ∂L/∂w (for a weight buried deep in the network) into a
+      product of simple local derivatives via the chain rule, working backward from the output.
+
+
+Q9. Initializing every weight in a network to exactly zero causes which problem?
+      (A) Vanishing gradients only, nothing else
+      (B) Exploding gradients
+      (C) The symmetry problem -- every neuron in a layer updates identically forever
+      (D) Overfitting
+      ✓ Answer: (C) With identical weights, every neuron in a layer computes the same output and
+      receives the same gradient, so they never differentiate from one another -- the layer can never use
+      its full capacity.
+
+                                      Page 31 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                            Unit: Convolutional Neural Networks
+
+
+Q10. He initialization sets the variance of the weights to:
+      (A) 1 / n_in
+      (B) 2 / n_in
+      (C) 1 / (n_in + n_out)
+      (D) n_in / 2
+      ✓ Answer: (B) He init uses Var(W) = 2/n_in -- double Xavier's variance -- to compensate for ReLU
+      zeroing out roughly half its inputs on average.
+
+
+Q11. Immediately after the 'normalize' step of Batch Normalization (before scale-and-shift), the batch of
+values has:
+      (A) Mean = 1, Variance = 0
+      (B) Mean = 0, Variance = 1
+      (C) Mean = 0, Variance = 0
+      (D) It depends on γ and β
+      ✓ Answer: (B) Step 3 of BN (z_i = (x_i−μ)/√(σ²+ε)) is defined precisely so the normalized values
+      have mean 0 and variance 1, by construction, before γ and β are applied in Step 4.
+
+
+Q12. In inverted dropout, the surviving (non-dropped) activations are scaled, during training, by a factor
+of:
+      (A) p
+      (B) 1 − p
+      (C) 1 / (1 − p)
+      (D) 1 / p
+      ✓ Answer: (C) Surviving activations are divided by the keep-probability (1−p), i.e. multiplied by
+      1/(1−p), so the expected total signal matches what the next layer will see at test time (when
+      nothing is dropped).
+
+
+Q13. Which hyperparameter search strategy scales worst as the number of hyperparameters grows?
+      (A) Random Search
+      (B) Grid Search
+      (C) Bayesian Optimization
+      (D) Manual tuning by an expert
+      ✓ Answer: (B) Grid search tries every combination, so its cost grows multiplicatively with each
+      new hyperparameter (Example 9.1) -- random search and Bayesian optimization scale far more
+      gracefully.
+
+
+Q14. Which architecture first introduced residual (skip) connections?
+      (A) AlexNet
+      (B) VGG
+      (C) GoogLeNet
+                                     Page 32 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                            Unit: Convolutional Neural Networks
+
+      (D) ResNet
+      ✓ Answer: (D) ResNet (He et al., 2015) introduced the residual block H(x) = F(x) + x, using identity
+      shortcuts to solve the degradation problem in very deep networks.
+
+
+Q15. In an Inception module, the 1×1 convolutions are primarily used to:
+      (A) Increase the spatial (height/width) size of the feature map
+      (B) Reduce the channel depth before the expensive 3×3 / 5×5 convolutions run
+      (C) Add colour information
+      (D) Replace the need for any pooling branch
+      ✓ Answer: (B) These 'bottleneck' 1×1 convolutions cut the number of channels first, so the
+      following 3×3/5×5 convolutions operate on far fewer channels -- see Example 10.1 for the ≈10×
+      parameter saving this produces.
+
+
+
+
+                                     Page 33 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                              Unit: Convolutional Neural Networks
+
+
+13. Practice Questions -- Section B
+
+35 short-answer, numerical, and descriptive questions with fully worked solutions, organised by topic.
+
+Topic: Introduction to CNN
+
+Q1. [Short Answer] Explain why weight sharing in a convolution layer leads to translation invariance.
+Illustrate with a simple vertical-edge filter.
+Solution
+  ● In a convolution layer, the same filter (the same set of weights) is slid across every position of the
+    input -- the filter is not re-learned for each location.
+  ● Suppose a filter has learned to respond strongly to vertical edges. Because that exact filter is
+    applied everywhere, a vertical edge will produce a strong activation whether it appears in the top-
+    left of the image or the bottom-right.
+  ● Result: if an object shifts position within the frame, the same feature (a vertical edge, a curve, a
+    colour blob) is still detected -- just at a shifted location in the output feature map. This shift-
+    equivariance of individual feature maps, combined with pooling, is what gives CNNs their practical
+    translation invariance.
+
+
+Q2. [Descriptive] Describe the complete pipeline of a CNN for image classification, explaining the specific
+role of each layer type in transforming a raw image into a class prediction.
+Solution
+  ● Input: a raw image, e.g. 32×32×3 (height × width × colour channels).
+  ● Convolution + ReLU (repeated): each convolution layer slides learnable filters over its input to
+    produce feature maps that highlight local patterns (edges → textures → parts → objects, from early
+    to late layers); ReLU then adds the non-linearity needed to model complex functions.
+  ● Pooling (interspersed): down-samples the feature maps, reducing spatial size and computation
+    while keeping the strongest signals, and adding mild translation invariance.
+  ● Flatten: once the spatial size has been reduced enough, the final 3-D feature volume is reshaped
+    into a 1-D vector.
+  ● Fully Connected layers: combine all the extracted high-level features to reason about the image as
+    a whole.
+  ● Softmax output: converts the final layer's raw scores (logits) into a probability distribution over the
+    classes, and the class with the highest probability is the network's prediction.
+This exact pipeline is illustrated in Figure 1.1 of the notes.
+
+Topic: The Convolution Operation
+
+Q3. [Numerical] A 5×5 input is convolved with the 3×3 'plus-shaped' filter below, stride 1, no padding.
+Compute the complete 3×3 output feature map. Input = [[0,1,2,1,0], [1,2,1,0,1], [2,1,0,1,2], [1,0,1,2,1],
+[0,1,2,1,0]] Filter = [[0,1,0], [1,1,1], [0,1,0]]
+
+                                       Page 34 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                  Unit: Convolutional Neural Networks
+
+Solution
+The filter only has 1's in the centre 'plus' positions, so at each window we simply add the top, left,
+centre, right and bottom cell of the 3×3 patch (the four corners are ignored, since they are multiplied by
+0).
+
+         Position               5 relevant cells (top, left, centre, right, bottom)                Sum
+
+ (0,0)                  1, 1, 2, 1, 1                                                         6
+
+ (0,1)                  2, 2, 1, 0, 0                                                         5
+
+ (0,2)                  1, 1, 0, 1, 1                                                         4
+
+ (1,0)                  2, 2, 1, 0, 0                                                         5
+
+ (1,1)                  1, 1, 0, 1, 1                                                         4
+
+ (1,2)                  0, 0, 1, 2, 2                                                         5
+
+ (2,0)                  1, 1, 0, 1, 1                                                         4
+
+ (2,1)                  0, 0, 1, 2, 2                                                         5
+
+ (2,2)                  1, 1, 2, 1, 1                                                         6
+
+
+Final output feature map: [[6, 5, 4], [5, 4, 5], [4, 5, 6]]
+
+Significance: notice the output is symmetric (top-left equals bottom-right, etc.) -- a direct consequence
+of the input and filter both being symmetric. Sanity-checking symmetry like this is a quick way to catch
+arithmetic mistakes.
+
+
+Q4. [Numerical] An input volume of size 64×64×3 is passed through a convolution layer with 16 filters of
+size 3×3, stride 1, no padding. Find (a) the number of learnable parameters, and (b) the output volume
+shape.
+Solution
+Step 1 -- Parameters per filter (each filter's true depth automatically matches the input's 3 channels,
+plus 1 bias):
+
+                                               (3×3×3) + 1 = 27 + 1 = 28
+
+Step 2 -- Total parameters for 16 filters:
+
+                                                      28 × 16 = 448
+
+Step 3 -- Output spatial size (N=64, F=3, S=1, P=0):
+
+                                                 O = (64−3)/1 + 1 = 62
+
+Step 4 -- Output volume: spatial 62×62, depth = number of filters = 16, so the output volume is 62 × 62 ×
+16.
+
+Significance: only 448 parameters are needed regardless of how large the 64×64 image is -- this
+parameter count would be identical even for a 1000×1000 input.
+
+
+                                           Page 35 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                               Unit: Convolutional Neural Networks
+
+
+Q5. [Numerical] A 28×28×1 image feeds into (a) a fully-connected layer of 500 neurons, or (b) a
+convolution layer of 8 filters, size 5×5. Compute the parameter count for both and their ratio.
+Solution
+Step 1 -- Fully connected layer:
+
+                        Params = (28×28×1)×500 + 500 = 784×500 + 500 = 392,500
+
+Step 2 -- Convolution layer:
+
+                                    Params = (5×5×1 + 1)×8 = 26×8 = 208
+
+Step 3 -- Ratio:
+
+                                              392,500 / 208 ≈ 1887
+
+Significance: the dense layer needs almost 1900× more parameters than the convolution layer to
+process the very same image -- reinforcing Example 1.1's point on a second, independent set of
+numbers.
+
+
+Q6. [Short Answer] Explain the difference between a 'filter' and a 'feature map', and how the two are
+related.
+Solution
+  ● A filter (kernel) is a small grid of learnable weights -- it is a parameter of the model, learned during
+    training, and stays fixed once training ends.
+  ● A feature map (activation map) is the output produced when a specific filter is convolved across an
+    input -- it is data that is computed fresh for every new input image, not a stored parameter.
+  ● Relationship: one filter, applied to one input, produces exactly one feature map. A convolution
+    layer with K filters therefore produces K feature maps, stacked into an output volume of depth K.
+
+
+Q7. [Numerical] An input volume is 16×16×3. Layer 1 applies 8 filters of size 3×3, stride 1, 'same' padding
+(P=1). Layer 2 then applies 16 filters of size 3×3, stride 2, padding P=1, directly on Layer 1's output. Find
+the output volume shape after each layer.
+Solution
+Layer 1 -- N=16, F=3, S=1, P=1:
+
+                                     O = (16 + 2×1 − 3)/1 + 1 = 15 + 1 = 16
+
+Output volume after Layer 1: 16 × 16 × 8 (spatial size unchanged, confirming 'same' padding; depth = 8
+filters).
+
+Layer 2 -- N=16, F=3, S=2, P=1 (applied to the 16×16×8 volume from Layer 1):
+
+                               O = ⌊(16 + 2×1 − 3)/2⌋ + 1 = ⌊15/2⌋ + 1 = 7 + 1 = 8
+
+Output volume after Layer 2: 8 × 8 × 16.
+
+
+
+
+                                        Page 36 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                              Unit: Convolutional Neural Networks
+
+Significance: notice Layer 2's input depth (8) does not appear anywhere in the output-size formula --
+depth never affects the spatial output size, only the number of filters does (and only via the output's
+depth, not its height/width).
+
+Topic: Padding and Stride
+
+Q8. [Numerical] Find the padding P required to achieve 'same' output size, given filter size F=7 and stride
+S=1.
+Solution
+
+                                         P = (F − 1)/2 = (7 − 1)/2 = 3
+
+Significance: a 7×7 filter needs a 3-pixel zero border on every side to preserve spatial size -- larger filters
+always need proportionally more padding for 'same' output.
+
+
+Q9. [Numerical] Compute the output size for N=15, F=5, S=2, P=2.
+Solution
+
+                             O = ⌊(15 + 2×2 − 5)/2⌋ + 1 = ⌊14/2⌋ + 1 = 7 + 1 = 8
+
+The output is 8×8.
+
+
+Q10. [Numerical] A network stacks three convolution layers (stride 1 throughout): Layer 1 is 3×3, Layer 2
+is 3×3, Layer 3 is 5×5. (a) Find the final receptive field. (b) Compare the total parameter count (for C
+input/output channels per layer) against a single convolution with the same receptive field.
+Solution
+Step 1 -- Receptive field after each layer (RF grows by F−1 each time, stride 1):
+
+  ● After Layer 1 (3×3): RF = 3
+  ● After Layer 2 (3×3): RF = 3 + (3−1) = 5
+  ● After Layer 3 (5×5): RF = 5 + (5−1) = 9
+Step 2 -- Parameter cost of the 3-layer stack (per C input/output channels):
+
+                                (3×3 + 3×3 + 5×5) × C² = (9+9+25)C² = 43C²
+
+Step 3 -- A single convolution with the same 9×9 receptive field:
+
+                                                 9×9×C² = 81C²
+
+Step 4 -- With C=64: 43×64² = 176,128 vs. 81×64² = 331,776 -- a reduction of about 47%.
+
+Significance: the same receptive field (9×9) is reached with roughly half the parameters by stacking
+smaller filters -- the same principle behind Example 3.3 and the design of VGG.
+
+
+Q11. [Short Answer] Explain, with a concrete example, why 'valid' (no) padding causes information near
+the image border to be under-used.
+Solution
+
+
+                                       Page 37 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                    Unit: Convolutional Neural Networks
+
+  ● With no padding, a filter can only be centred on interior pixels -- it can never be centred exactly on
+    a corner or edge pixel, since part of the window would fall outside the image.
+  ● Concrete example: for a 5×5 input and a 3×3 filter, the very corner pixel (0,0) is covered by the
+    filter only once (when the window is at position (0,0)); a centre pixel such as (2,2) is covered up to 9
+    times as the filter slides through every position that overlaps it.
+  ● This means border pixels contribute to far fewer output values than centre pixels do, so the
+    network effectively 'sees' border information less often -- padding (Section 3.1) directly corrects
+    this imbalance.
+
+Topic: Pooling
+
+Q12. [Numerical] Apply 2×2 max pooling, stride 2, to the 6×6 input below. Show the full 3×3 output.
+[[4,2,7,1,3,5], [1,6,3,8,2,0], [5,3,9,4,1,2], [2,8,1,5,6,3], [0,4,2,7,3,1], [6,1,5,2,4,8]]
+Solution
+
+      Window (2×2 block)                           Values                                        Max
+
+ Top-left                       4, 2, 1, 6                                          6
+
+ Top-middle                     7, 1, 3, 8                                          8
+
+ Top-right                      3, 5, 2, 0                                          5
+
+ Middle-left                    5, 3, 2, 8                                          8
+
+ Centre                         9, 4, 1, 5                                          9
+
+ Middle-right                   1, 2, 6, 3                                          6
+
+ Bottom-left                    0, 4, 6, 1                                          6
+
+ Bottom-middle                  2, 7, 5, 2                                          7
+
+ Bottom-right                   3, 1, 4, 8                                          8
+
+
+Output (max-pooled): [[6, 8, 5], [8, 9, 6], [6, 7, 8]]
+
+
+Q13. [Numerical] Using the same 6×6 input as Question 12, apply 2×2 average pooling, stride 2.
+Solution
+
+      Window (2×2 block)                           Values                                     Mean
+
+ Top-left                       4, 2, 1, 6                                          13/4 = 3.25
+
+ Top-middle                     7, 1, 3, 8                                          19/4 = 4.75
+
+ Top-right                      3, 5, 2, 0                                          10/4 = 2.5
+
+ Middle-left                    5, 3, 2, 8                                          18/4 = 4.5
+
+ Centre                         9, 4, 1, 5                                          19/4 = 4.75
+
+ Middle-right                   1, 2, 6, 3                                          12/4 = 3.0
+
+
+                                        Page 38 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                    Unit: Convolutional Neural Networks
+
+
+      Window (2×2 block)                           Values                                     Mean
+
+ Bottom-left                    0, 4, 6, 1                                          11/4 = 2.75
+
+ Bottom-middle                  2, 7, 5, 2                                          16/4 = 4.0
+
+ Bottom-right                   3, 1, 4, 8                                          16/4 = 4.0
+
+
+Output (average-pooled): [[3.25, 4.75, 2.5], [4.5, 4.75, 3.0], [2.75, 4.0, 4.0]]
+
+
+Q14. [Numerical] Find the pooling output size for N=13, F=3, S=2 (no padding).
+Solution
+
+                                O = ⌊(13−3)/2⌋ + 1 = ⌊10/2⌋ + 1 = 5 + 1 = 6
+
+The output is 6×6.
+
+
+Q15. [Short Answer] Explain why Global Average Pooling (GAP) reduces overfitting risk compared to a
+large fully-connected layer, referencing parameter counts.
+Solution
+  ● GAP has zero learnable parameters -- it simply averages each channel down to one number --
+    whereas a Flatten+Dense combination on the same feature map can need over a hundred million
+    parameters (see Example 4.2: 102,764,544 vs. 513,000).
+  ● Fewer parameters mean fewer opportunities for the model to memorise noise or idiosyncrasies
+    specific to the training set, which is the essence of overfitting.
+  ● GAP also forces each channel to summarise 'how much of this feature is present, on average,
+    anywhere in the image', which is a more robust, spatially-invariant signal than a large set of
+    position-specific dense weights.
+
+Topic: Training a ConvNet
+
+Q16. [Numerical] A single sigmoid neuron has x=3, w=0.4, b=−0.2, target y=0, learning rate η=0.05.
+Perform one complete forward pass, compute the loss (MSE), then perform backpropagation and update
+both w and b.
+Solution
+STEP 1 -- Forward pass:
+
+                               z = wx + b = (0.4)(3) + (−0.2) = 1.2 − 0.2 = 1.0
+
+                              a = σ(1.0) = 1/(1+e−1) = 1/(1+0.3679) ≈ 0.7311
+
+STEP 2 -- Loss (MSE):
+
+                                  L = 0.5(y−a)2 = 0.5(0−0.7311)2 ≈ 0.2672
+
+STEP 3 -- Backward pass (chain rule):
+
+  ● ∂L/∂a = −(y−a) = −(0−0.7311) = 0.7311
+
+                                        Page 39 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                            Unit: Convolutional Neural Networks
+
+  ● ∂a/∂z = a(1−a) = 0.7311×0.2689 ≈ 0.1966
+  ● ∂z/∂w = x = 3, ∂z/∂b = 1
+
+                               (∂L) / (∂w) = 0.7311 × 0.1966 × 3 ≈ 0.4312
+
+                                (∂L) / (∂b) = 0.7311 × 0.1966 × 1 ≈ 0.1437
+
+STEP 4 -- Update:
+
+                                    wnew = 0.4 − 0.05(0.4312) ≈ 0.3784
+
+                                  bnew = −0.2 − 0.05(0.1437) ≈ −0.2072
+
+Significance: since the target was y=0 but the network predicted a=0.7311 (too high), both updates
+nudge w and b downward -- exactly the direction that would reduce the prediction, and hence the loss.
+
+
+Q17. [Numerical] A weight w=1.2 has gradient ∂L/∂w=0.35. Using learning rate η=0.2, compute the
+updated weight.
+Solution
+
+                        wnew = w − η(∂L/∂w) = 1.2 − (0.2)(0.35) = 1.2 − 0.07 = 1.13
+
+
+Q18. [Short Answer] Why is backpropagation described as an application of the chain rule? Relate your
+answer to the layered structure of a CNN.
+Solution
+  ● A CNN is a composition of functions -- the output of Layer 1 feeds into Layer 2, whose output feeds
+    into Layer 3, and so on. Mathematically, the network computes a nested function like
+    L(fn(fn−1(...f1(x)...))).
+  ● The chain rule states that the derivative of a composition of functions is the product of their
+    individual derivatives. Backprop applies exactly this: it computes ∂L/∂w for a deeply buried weight
+    by multiplying together the local derivative at every layer between that weight and the final loss.
+  ● This lets each layer be programmed to know only its own simple local derivative; the overall
+    complex gradient emerges automatically by chaining these simple pieces together, layer by layer,
+    backward from the loss.
+
+
+Q19. [Descriptive] Explain the forward pass, loss computation, and backward pass as one coherent
+training loop, and explain why mini-batches are used in practice rather than the full dataset or a single
+example.
+Solution
+  ● Forward pass: a batch of inputs is pushed through every layer to produce predictions.
+  ● Loss computation: the predictions are compared against the true labels using a loss function (e.g.
+    cross-entropy), giving a single number that measures how wrong the network currently is.
+  ● Backward pass: the chain rule is applied layer by layer, backward from the loss, to compute ∂L/∂w
+    for every weight.
+
+
+
+                                     Page 40 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                            Unit: Convolutional Neural Networks
+
+  ● Update: every weight takes a small step opposite to its gradient (gradient descent), and the loop
+    repeats.
+  ● Why mini-batches: using the full dataset per update (batch GD) gives a very stable gradient
+    direction but is slow and memory-heavy; using a single example (SGD) is fast but extremely noisy. A
+    mini-batch (e.g. 32-256 examples) strikes a practical balance -- stable enough gradients, while still
+    allowing many updates per epoch and fitting comfortably in GPU memory.
+
+Topic: Weight Initialization
+
+Q20. [Numerical] A layer has n_in = 512 incoming connections. Compute the standard deviation used by
+(a) Xavier initialization and (b) He initialization.
+Solution
+(a) Xavier:
+
+                                     std(W) = √((1) / (512)) ≈ 0.0442
+
+(b) He:
+
+                           std(W) = √((2) / (512)) = √(1/256) = 1/16 = 0.0625
+
+Significance: He's std-dev (0.0625) is √2 times larger than Xavier's (0.0442), consistent with He using
+exactly double the variance.
+
+
+Q21. [Short Answer] Why does pairing Xavier initialization with ReLU activations tend to make activations
+shrink toward zero in deep networks?
+Solution
+  ● ReLU sets all negative inputs to exactly 0, so on average only about half of a ReLU layer's outputs
+    are non-zero.
+  ● Xavier initialization was derived assuming a (roughly) symmetric activation like tanh, which does
+    not zero out half its output -- it does not account for this halving effect.
+  ● As a result, when Xavier init is combined with ReLU, the variance of activations roughly halves at
+    every layer, so after enough layers the signal shrinks toward zero -- this is exactly why He
+    initialization doubles the variance, to compensate.
+
+
+Q22. [Descriptive] Explain the symmetry problem caused by zero-initialization in detail, including why it
+persists through every iteration of gradient descent (not just the first).
+Solution
+  ● Suppose every weight feeding into a layer's neurons is initialized to exactly 0 (or any other single
+    shared constant). Every neuron in that layer then computes the exact same weighted sum of the
+    inputs, and therefore the exact same output after activation.
+  ● During backpropagation, the gradient flowing to each of these neurons also depends only on the
+    (identical) forward computation and the (identical) downstream gradient -- so every neuron in the
+    layer receives an identical gradient too.
+
+
+                                     Page 41 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                 Unit: Convolutional Neural Networks
+
+  ● Why it persists: since every neuron starts identical AND receives an identical update at every step,
+    they remain identical to each other forever, no matter how many iterations of gradient descent are
+    run. The layer is permanently stuck behaving as if it had only one distinct neuron, however many it
+    actually contains.
+  ● Randomizing the initial weights breaks this symmetry from the very first step, since different
+    neurons then start with different weights, compute different outputs, and receive different
+    gradients -- allowing them to specialise.
+
+Topic: Batch Normalization
+
+Q23. [Numerical] Apply Batch Normalization to the mini-batch x = [10, 12, 14, 16], with learnable
+parameters γ=0.5, β=0 (ignore ε).
+Solution
+Step 1 -- Mean:
+
+                                      μ = (10+12+14+16)/4 = 52/4 = 13
+
+Step 2 -- Variance:
+
+                        σ2 = [(10−13)2+(12−13)2+(14−13)2+(16−13)2]/4 = [9+1+1+9]/4 = 5
+
+Step 3 -- Normalize (√5 ≈ 2.2361):
+
+         z = [(10−13), (12−13), (14−13), (16−13)] / 2.2361 ≈ [−1.3416, −0.4472, 0.4472, 1.3416]
+
+Step 4 -- Scale by γ=0.5, shift by β=0:
+
+                                    y ≈ [−0.6708, −0.2236, 0.2236, 0.6708]
+
+Significance: with γ=0.5 (less than 1), BN is choosing to compress the spread of this batch's normalized
+values back down -- a good illustration of γ and β letting the network partially or fully undo the raw
+normalization when useful.
+
+
+Q24. [Short Answer] Explain what happens with Batch Normalization at test time, when there may be no
+'batch' to compute statistics from.
+Solution
+  ● During training, BN keeps a running (exponential moving) average of the mean and variance it sees
+    across all the mini-batches processed.
+  ● At test time, this stored running average is used directly in place of a freshly computed batch
+    mean/variance -- so a single test example can be normalized deterministically, without needing a
+    batch at all.
+
+
+Q25. [Descriptive] Discuss internal covariate shift and explain how Batch Normalization's four steps
+address it, including the role of the learnable γ and β parameters.
+Solution
+
+
+
+
+                                          Page 42 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                 Unit: Convolutional Neural Networks
+
+  ● Internal covariate shift: as training proceeds, the weights of every earlier layer keep changing,
+    which means the statistical distribution of inputs arriving at any given later layer keeps shifting too.
+    Each layer must continually re-adapt to this moving target, which slows convergence and forces
+    small, cautious learning rates.
+  ● How BN addresses it: by explicitly re-centring and re-scaling each layer's activations (Steps 1-3:
+    compute batch mean, compute batch variance, normalize to zero-mean/unit-variance) at every
+    layer, on every mini-batch, BN guarantees the distribution reaching the next layer stays stable and
+    well-behaved, regardless of how the earlier layers' weights have changed.
+  ● Role of γ, β (Step 4): forcing every layer to strictly zero-mean/unit-variance could actually limit
+    what the network can represent (e.g. sigmoid works best with a wider input range in some cases). γ
+    and β are learnable, so the network can rescale/shift the normalized values to whatever
+    distribution is actually optimal -- including learning to undo the normalization entirely if that were
+    ever the best choice.
+
+Topic: Dropout
+
+Q26. [Numerical] A layer has 6 neuron activations [0.2, 0.6, 0.4, 0.9, 0.5, 0.7]. Dropout rate p=0.5 is
+applied, and the random mask happens to be [0,1,0,1,1,0] (1=keep, 0=drop). Compute the layer's output
+after inverted dropout.
+Solution
+Step 1 -- Apply the mask (element-wise multiply):
+
+                        [0.2×0, 0.6×1, 0.4×0, 0.9×1, 0.5×1, 0.7×0] = [0, 0.6, 0, 0.9, 0.5, 0]
+
+Step 2 -- Scale surviving values by 1/(1−p) = 1/0.5 = 2:
+
+                                                [0, 1.2, 0, 1.8, 1.0, 0]
+
+Significance: 3 of the 6 neurons were dropped (p=0.5, matching the expected ≈50%), and the 3 survivors
+were doubled so the expected total signal (sum) is preserved compared to using all 6 neurons unscaled.
+
+
+Q27. [Short Answer] Why is activation scaling needed during training in inverted dropout, but not needed
+at test time?
+Solution
+  ● During training, a fraction p of neurons are zeroed out, which shrinks the total signal reaching the
+    next layer. Scaling the survivors by 1/(1−p) compensates for this, keeping the expected total signal
+    the same as it would be with no dropout at all.
+  ● At test time, the full (un-thinned) network is used -- no neurons are dropped, so the total signal
+    already matches what was targeted during training. Since the scaling was already applied during
+    training, no further adjustment is needed at test time; the network is simply used as-is.
+
+
+Q28. [Descriptive] Explain how dropout can be interpreted as implicitly training an ensemble of sub-
+networks.
+Solution
+
+
+                                          Page 43 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                             Unit: Convolutional Neural Networks
+
+  ● Every time a forward pass is run during training, a different random subset of neurons is dropped --
+    so, in effect, a different, smaller 'thinned' sub-network is being trained on that particular batch.
+  ● Because weights are shared across all these thinned sub-networks (the same underlying weight
+    matrix is used every time, just with some entries temporarily zeroed), training with dropout is
+    similar to training a huge collection of different networks simultaneously, all tied together by
+    shared parameters.
+  ● At test time, using the full network (with inverted-dropout scaling already applied) approximates
+    averaging the predictions of this entire ensemble of thinned sub-networks -- a cheap
+    approximation to a well-known and powerful technique (model ensembling), obtained here almost
+    for free.
+
+Topic: Hyperparameter Optimization
+
+Q29. [Numerical] A grid search is planned over 5 learning rates × 4 batch sizes × 2 optimizers. Each
+training run takes 1.5 hours. Compute the total number of combinations and the total compute time.
+Solution
+
+                                      Combinations = 5 × 4 × 2 = 40
+
+                                  Total time = 40 × 1.5 hours = 60 hours
+
+Significance: 60 hours (2.5 days) on a single machine, for a fairly modest 3-hyperparameter grid --
+illustrating again why grid search is only practical for small search spaces.
+
+
+Q30. [Short Answer] If only 2 of 6 hyperparameters in a search actually have a meaningful effect on
+performance, explain why random search tends to outperform grid search for the same compute
+budget.
+Solution
+  ● Grid search spends its budget on every combination of all 6 hyperparameters equally -- for the 4
+    hyperparameters that don't matter, it is repeatedly re-testing essentially the same effective
+    configuration, wasting trials.
+  ● Random search samples each hyperparameter independently across its full range on every trial. For
+    the 2 hyperparameters that do matter, this means random search still explores many distinct
+    values of exactly those 2 dimensions, using its budget far more efficiently on the dimensions that
+    actually matter.
+  ● In practice this means random search can find a comparably good (or better) setting with far fewer
+    total trials than grid search, whenever only a small subset of hyperparameters are truly influential -
+    - which is very often the case.
+
+
+Q31. [Descriptive] Explain learning-rate scheduling and why using a single fixed learning rate for all of
+training is often suboptimal.
+Solution
+
+
+
+
+                                      Page 44 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                            Unit: Convolutional Neural Networks
+
+  ● The trade-off with a fixed rate: a learning rate large enough for fast early progress is often too
+    large later on, causing oscillation around the minimum instead of settling into it; a rate small
+    enough for fine, stable convergence late in training is painfully slow at the start.
+  ● Learning-rate scheduling resolves this by changing η over the course of training -- typically starting
+    relatively large and decreasing it as training progresses. Common schedules include step decay
+    (drop η by a fixed factor every few epochs), exponential decay, and cosine annealing (smoothly
+    decreasing η following a cosine curve).
+  ● Net effect: fast, coarse progress early in training, followed by careful, precise fine-tuning as the
+    model approaches a good solution -- generally reaching a better final result than any single fixed
+    learning rate could.
+
+Topic: CNN Architectures
+
+Q32. [Numerical] An input volume is 14×14×256. A 3×3 convolution producing 64 output channels is
+needed. Compare the parameter cost of (a) applying the 3×3 convolution directly, versus (b) first using a
+1×1 bottleneck to reduce 256→32 channels, then applying the 3×3 convolution (32→64).
+Solution
+(a) Direct 3×3 convolution:
+
+                                    Params = 3×3×256×64 = 147,456
+
+(b) With a 1×1 bottleneck:
+
+                                     1×1 conv: 1×1×256×32 = 8,192
+
+                                     3×3 conv: 3×3×32×64 = 18,432
+
+                                    Total = 8,192 + 18,432 = 26,624
+
+Step -- Compare: 147,456 / 26,624 ≈ 5.54, i.e. roughly an 82% reduction.
+
+Significance: even with different numbers from Example 10.1, the same pattern holds: a 1×1 bottleneck
+cuts parameters by roughly 5-10× for a typical channel count -- this is a general, reliable rule of thumb,
+not a one-off coincidence.
+
+
+Q33. [Short Answer] Why does GoogLeNet have far fewer parameters than VGG, despite being a deeper
+network (22 layers vs. 16)?
+Solution
+  ● GoogLeNet uses 1×1 bottleneck convolutions throughout its Inception modules to shrink channel
+    depth before the expensive 3×3/5×5 convolutions run, cutting their parameter cost by roughly 5-
+    10× (Example 10.1 / Question 32).
+  ● GoogLeNet replaces the huge Flatten+Dense stack at the end of the network with Global Average
+    Pooling, which has zero learnable parameters, whereas VGG's dense layers alone account for the
+    vast majority of its ≈138 million parameters (Example 4.2).
+  ● Together, these two design choices let GoogLeNet reach 22 layers of depth using only ≈5 million
+    parameters, versus VGG's 16 layers and ≈138 million parameters.
+
+                                     Page 45 of 46 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                 Unit: Convolutional Neural Networks
+
+
+Q34. [Descriptive] Compare AlexNet, VGG, GoogLeNet, and ResNet in terms of depth, parameter count,
+and key innovation, and explain the evolutionary logic connecting them.
+Solution
+
+        Architecture             Depth                Parameters                    Key Innovation
+
+ AlexNet (2012)             8 layers              ≈60M                    ReLU, Dropout, GPU training
+
+ VGG-16 (2014)              16 layers             ≈138M                   Deep stack of small 3×3 filters
+
+                                                                          Inception module + 1×1
+ GoogLeNet (2014)           22 layers             ≈5M
+                                                                          bottlenecks + GAP
+
+ ResNet-152 (2015)          152 layers            ≈60M                    Residual / skip connections
+
+
+  ● AlexNet first proved deep CNNs trained on GPUs could dramatically beat traditional computer
+    vision -- opening the door to everything that followed.
+  ● VGG pushed depth further using small, uniform filters, showing depth reliably helps -- but at a
+    heavy parameter cost, mostly in its dense layers.
+  ● GoogLeNet showed that clever, efficient module design (multi-scale filters + bottlenecks + GAP) can
+    beat brute-force scaling -- more accurate than VGG with about 27× fewer parameters.
+  ● ResNet then solved the degradation problem that had capped how deep any of the earlier designs
+    could practically go, using residual connections -- unlocking networks over 100 layers deep as
+    genuinely trainable.
+
+
+Q35. [Descriptive] Explain the degradation problem observed in very deep plain (non-residual) networks,
+and explain -- referencing H(x) = F(x) + x -- how residual connections solve it.
+Solution
+  ● The degradation problem: beyond a certain depth, simply stacking more layers onto a plain CNN
+    makes both training and test accuracy get worse, not better. Crucially, this is not overfitting (test
+    error alone getting worse while training error improves) -- training error itself rises, showing that
+    the extra layers are making the network strictly harder to optimize, via vanishing/exploding
+    gradients compounding across so many layers.
+  ● The residual fix: instead of asking a block of layers to learn the full, possibly complex mapping H(x)
+    directly, ResNet re-parameterizes the problem: the block learns only the residual F(x) = H(x) − x,
+    and its actual output is computed as F(x) + x, adding the original input back in via an identity
+    shortcut.
+  ● Why this helps optimization: if the ideal mapping for a given block turns out to be close to the
+    identity function, it is trivial for the block to learn F(x)≈0 (push its weights toward zero) rather than
+    having to learn to reproduce H(x)=x exactly from scratch through several non-linear layers. More
+    importantly, during backpropagation, the '+x' shortcut carries the gradient straight through with a
+    local derivative of exactly 1, giving every layer a direct, unimpeded path back to the loss -- so
+    gradients no longer have to survive an unbroken chain of many multiplications through non-linear
+    layers, which is precisely what allows networks over 100 layers deep to train successfully.
+
+
+
+                                        Page 46 of 46 | Manipal University Jaipur
+

@@ -1,0 +1,1786 @@
+CCE3144 – Deep Learning                                                                  Unit: Recurrent Neural Networks
+
+
+
+
+                                             MANIPAL UNIVERSITY JAIPUR
+                                 Department of Computer & Communication Engineering
+
+
+
+
+                            CCE3144 – DEEP LEARNING
+                                    Credit Structure [ L – T – P – C : 3 – 0 – 0 – 3 ]
+
+
+
+                                                     LECTURE NOTES
+                                         Recurrent Neural Networks
+                           Recurrent Networks • LSTM • GRU • RNN Language Models
+
+
+
+Syllabus — Module Coverage
+Recurrent neural network: Recurrent networks, Long Short-Term Memory (LSTM), Gated Recurrent
+Units (GRU), recurrent neural network language models.
+
+
+
+                                                        Compiled by
+                                              Dr. Manoj Kumar Sharma
+           Includes step-by-step numerical examples worked from first principles, labelled block diagrams
+            for every architecture, and a 50-question practice bank (15 MCQs + 35 descriptive / numerical
+                                        questions) with fully worked solutions.
+
+
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                          Page 1 of 41
+CCE3144 – Deep Learning                                                                                             Unit: Recurrent Neural Networks
+
+
+
+
+Table of Contents
+(In Word, right-click the box below and choose “Update Field” → “Update entire table” to populate page numbers.)
+
+Table of Contents ........................................................................................................................................ 2
+Learning Outcomes ..................................................................................................................................... 4
+       How to use these notes ...................................................................................................................... 4
+1. Introduction to Sequential Data and Recurrent Neural Networks ...................................................... 5
+   1.1 What Is Sequential Data? ................................................................................................................ 5
+   1.2 Why Feedforward Networks Struggle with Sequences .................................................................. 5
+   1.3 The Core Idea of a Recurrent Network ........................................................................................... 6
+   1.4 Notation Used Throughout This Unit .............................................................................................. 6
+   1.5 Applications of Recurrent Networks ............................................................................................... 7
+2. Recurrent Neural Networks (RNN) ........................................................................................................ 8
+   2.1 Architecture ..................................................................................................................................... 8
+   2.2 Forward-Pass Equations .................................................................................................................. 9
+   2.3 Worked Example 1 — RNN Forward Pass, Step by Step ................................................................ 9
+       Step 1 — Compute h₁ (process the first input) ................................................................................ 10
+       Step 2 — Compute h₂ (now the recurrence is active)...................................................................... 10
+       Step 3 — Compute h₃ ........................................................................................................................ 10
+       Step 4 — Produce the output y₃ ....................................................................................................... 10
+   2.4 Types of RNN Architectures ........................................................................................................... 11
+   2.5 Training an RNN: Backpropagation Through Time (BPTT)............................................................ 11
+   2.6 Worked Example 2 — BPTT Gradient Computation ..................................................................... 12
+       Step 1 — Gradient at the output ...................................................................................................... 12
+       Step 2 — Backprop into h₃ through the output layer ...................................................................... 12
+       Step 3 — Backprop through tanh at t = 3......................................................................................... 12
+       Step 4 — Gradient contribution to Whh from t = 3 ......................................................................... 13
+       Step 5 — Propagate the gradient back one more step, to h₂.......................................................... 13
+       Step 6 — Propagate back to h₁, then to h₀....................................................................................... 13
+       Step 7 — Total gradient (sum over all time steps) .......................................................................... 13
+   2.7 The Vanishing and Exploding Gradient Problem .......................................................................... 13
+3. Long Short-Term Memory (LSTM) ....................................................................................................... 15
+   3.1 Motivation...................................................................................................................................... 15
+   3.2 Architecture ................................................................................................................................... 15
+   3.3 Equations........................................................................................................................................ 16
+   3.4 Worked Example 3 — LSTM Forward Pass, Step by Step ............................................................. 17
+       Time step t = 1 ................................................................................................................................... 17
+       Time step t = 2 ................................................................................................................................... 17
+
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                                                        Page 2 of 41
+CCE3144 – Deep Learning                                                                                             Unit: Recurrent Neural Networks
+
+
+
+   3.5 Why LSTM Solves the Vanishing Gradient Problem ..................................................................... 18
+   3.6 Advantages and Limitations .......................................................................................................... 18
+4. Gated Recurrent Unit (GRU) ................................................................................................................ 19
+   4.1 Motivation...................................................................................................................................... 19
+   4.2 Architecture ................................................................................................................................... 19
+   4.3 Equations........................................................................................................................................ 20
+   4.4 Worked Example 4 — GRU Forward Pass, Step by Step............................................................... 20
+       Time step t = 1 ................................................................................................................................... 20
+       Time step t = 2 (now the reset gate has something to act on) ....................................................... 21
+   4.5 GRU vs LSTM .................................................................................................................................. 21
+5. Recurrent Neural Network Language Models .................................................................................... 22
+   5.1 What Is a Language Model? .......................................................................................................... 22
+   5.2 An RNN as a Language Model — Architecture ............................................................................. 22
+   5.3 Equations........................................................................................................................................ 23
+   5.4 Worked Example 5 — Next-Word Prediction, Step by Step ......................................................... 23
+       Time step t = 1: input = “I”, target = “love”.................................................................................... 24
+       Time step t = 2: input = “love”, target = “deep” ............................................................................ 24
+   5.5 Perplexity ....................................................................................................................................... 24
+   5.6 Beyond the Basics .......................................................................................................................... 25
+6. Comparative Summary: RNN vs LSTM vs GRU .................................................................................... 26
+   6.1 Structural Comparison ................................................................................................................... 26
+   6.2 Parameter-Count Formulas ........................................................................................................... 26
+   6.3 When to Use Which ....................................................................................................................... 26
+7. Practice Questions ............................................................................................................................... 28
+   Part A — Multiple Choice Questions (Q1–Q15) ................................................................................... 28
+   Part B — Descriptive and Numerical Questions (Q16–Q50) ............................................................... 32
+
+
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                                                        Page 3 of 41
+CCE3144 – Deep Learning                                                        Unit: Recurrent Neural Networks
+
+
+
+
+Learning Outcomes
+
+By the end of this unit, you should be able to —
+
+     •    Explain why ordinary feedforward networks are unsuitable for sequential data, and describe how
+          recurrence solves this problem.
+     •    Derive and compute the forward pass of a simple RNN cell by hand, step by step, for a short input
+          sequence.
+     •    Explain Backpropagation Through Time (BPTT) and compute gradients for a small RNN example.
+     •    Explain the vanishing / exploding gradient problem, why it occurs, and how it limits plain RNNs.
+     •    Draw the internal structure of an LSTM cell and compute its forget, input, candidate, cell-state,
+          output-gate and hidden-state values numerically.
+     •    Draw the internal structure of a GRU cell and compute its reset, update, candidate and hidden-
+          state values numerically.
+     •    Compare RNN, LSTM and GRU in terms of structure, parameter count, and typical use cases.
+     •    Explain how an RNN is used as a language model, and compute next-word probabilities, cross-
+          entropy loss and perplexity for a small example.
+
+
+How to use these notes
+     •    Every architecture is introduced with a plain-language explanation first, then a labelled block
+          diagram, then the exact equations, then a fully worked numerical example — read them in that
+          order.
+     •    All worked examples in this unit reuse the same two input vectors wherever possible, so you can
+          directly compare how an RNN, an LSTM and a GRU each process identical data.
+     •    Section 7 contains the 50-question practice bank. Attempt each question yourself before reading
+          the solution.
+
+
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                Page 4 of 41
+CCE3144 – Deep Learning                                                         Unit: Recurrent Neural Networks
+
+
+
+
+1. Introduction to Sequential Data and Recurrent Neural
+Networks
+
+1.1 What Is Sequential Data?
+     •    Sequential data is data in which order carries meaning — rearranging the elements changes (or
+          destroys) the meaning. This is different from ordinary tabular data, where the order of rows does
+          not matter.
+Common examples of sequential data:
+
+     •    Text / language — a sentence is a sequence of words; “dog bites man” ≠ “man bites dog”.
+     •    Speech / audio — a sequence of sound-pressure samples over time.
+     •    Time series — stock prices, weather readings, sensor logs: a sequence of numeric values indexed
+          by time.
+     •    Video — a sequence of image frames.
+     •    Biological sequences — DNA base pairs, protein amino-acid chains.
+Sequential data shares three properties that any model must respect:
+
+     •    It can be of variable length (sentences are not all the same number of words).
+     •    It is order-dependent (shuffling the elements changes the meaning).
+     •    It often has long-range dependencies — something at position 2 can affect the correct
+          interpretation of position 50.
+
+1.2 Why Feedforward Networks Struggle with Sequences
+A standard feedforward network (MLP) or a plain CNN expects one fixed-size input vector and produces
+one output, independently of any other input it has ever seen. This creates four concrete problems for
+sequence data:
+
+     •    Fixed input size. An MLP needs a fixed number of input features, but sentences and time series
+          vary in length.
+     •    No memory. Each input is processed in isolation; the network has no mechanism to “remember”
+          earlier inputs when processing the current one.
+     •    No parameter sharing across positions. If we tried to flatten a sequence into one long fixed
+          vector, the network would need separate weights for “word at position 5” versus “word at
+          position 50” — this does not generalise to lengths not seen in training and wastes parameters.
+     •    Violates the independence assumption. Standard supervised learning assumes examples are
+          independent; elements inside a sequence are, by definition, statistically dependent on their
+          neighbours.
+
+
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                 Page 5 of 41
+CCE3144 – Deep Learning                                                                  Unit: Recurrent Neural Networks
+
+
+
+
+  Figure 1. A feedforward network has no memory; a recurrent network feeds its hidden state back into itself, carrying
+                                     information from one time step to the next.
+
+
+Key Insight
+A Recurrent Neural Network (RNN) fixes all four problems at once by introducing a hidden state that is
+updated at every time step using the same weights. This single idea — a feedback loop with shared
+parameters — is what allows one compact model to process sequences of any length.
+
+
+1.3 The Core Idea of a Recurrent Network
+      •   An RNN maintains a hidden state (also called the “context” or “memory”), denoted ht
+      •   At every time step t, the network reads the current input xt and combines it with the previous
+          hidden state ht−1 to produce a new hidden state ht.
+      •   The same weight matrices are reused at every time step (parameter sharing across time). This
+          is the single most important structural idea in this unit — it is what lets a fixed-size set of
+          parameters handle sequences of any length.
+      •   ht acts as a compressed summary of everything the network has read up to and including time t.
+      •   An output yt (a class label, a predicted next word, a predicted next value, etc.) can be produced
+          from ht at any time step where one is needed.
+                                     ht = f(xt, ht−1)   — general recurrence relation
+
+1.4 Notation Used Throughout This Unit
+The table below fixes the notation used in every section that follows, so that the same symbol always
+means the same thing.
+
+           Symbol                                                    Meaning
+
+ xt                              Input vector at time step t
+
+ ht                              Hidden state (memory) at time step t
+
+ yt                              Output produced at time step t
+
+ Wxh, Whh, Why                   Weight matrices: input→hidden, hidden→hidden, hidden→output
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                          Page 6 of 41
+CCE3144 – Deep Learning                                                              Unit: Recurrent Neural Networks
+
+
+
+
+           Symbol                                                 Meaning
+
+ bh, by                          Bias vectors for the hidden and output layers
+
+ tanh, σ                         Hyperbolic-tangent and sigmoid activation functions
+
+ ⊙                               Element-wise (Hadamard) product
+
+ L                               Loss function
+
+ ∂L / ∂□                         Partial derivative of the loss with respect to □ (used in backpropagation)
+
+ T                               Length of the input sequence
+
+
+1.5 Applications of Recurrent Networks
+Because they can model dependencies across time, recurrent networks (and their gated variants, LSTM
+and GRU) have been used across a wide range of tasks:
+
+     •    Language modelling and text generation (predicting the next word/character).
+     •    Machine translation (sequence-to-sequence, encoder–decoder models).
+     •    Speech recognition (audio waveform → text).
+     •    Sentiment analysis and text classification.
+     •    Time-series forecasting — stock prices, electricity demand, weather.
+     •    Music and handwriting generation.
+     •    Video captioning and action recognition.
+     •    Chatbots and dialogue systems (largely superseded today by Transformers, but RNNs remain the
+          conceptual foundation and are still used in resource-constrained / streaming settings).
+
+
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                      Page 7 of 41
+CCE3144 – Deep Learning                                                                    Unit: Recurrent Neural Networks
+
+
+
+
+2. Recurrent Neural Networks (RNN)
+
+2.1 Architecture
+     •    A simple (“vanilla”) RNN is a single cell that is applied repeatedly, once per time step, with the
+          same weights every time.
+     •    Drawing this repetition out explicitly over time steps is called unrolling the network — it turns
+          the recurrent (looped) picture into an ordinary, feedforward-looking computational graph that
+          we can apply standard backpropagation to.
+
+
+
+
+ Figure 2. An RNN drawn as a single folded cell (left) and unrolled across three time steps (right). Every column uses the
+                                      identical weight matrices Wxh, Whh, Why.
+
+     •    Zooming into a single time step shows exactly what happens inside the cell:
+
+
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                            Page 8 of 41
+CCE3144 – Deep Learning                                                                       Unit: Recurrent Neural Networks
+
+
+
+
+         Figure 3. Inside one RNN cell at time step t: the previous hidden state and the current input are each linearly
+                  transformed, summed with a bias, and squashed by tanh to produce the new hidden state.
+
+2.2 Forward-Pass Equations
+                                                     at = Wxh xt + Whh ht−1 + bh
+
+                                                           ht = tanh(at)
+
+                                                          yt = Why ht + by
+
+Significance of each term:
+
+     •     Wxh xt — brings in new information from the current input.
+     •     Whh ht−1 — brings forward everything remembered so far from the past.
+     •     tanh(·) — a nonlinearity that (a) lets the network represent non-linear relationships and (b)
+           squashes the state into (−1, 1), keeping it numerically bounded step after step.
+     •     Why ht + by — a read-out layer that turns the internal memory into whatever output the task
+           needs (a class score, a predicted value, next-word logits, …).
+
+2.3 Worked Example 1 — RNN Forward Pass, Step by Step
+Given
+Input sequence (T = 3, input size 2): x₁ = [1.0000, 0.5000], x₂ = [0.5000, -1.0000], x₃ = [-0.5000,
+1.0000]
+Initial hidden state: h₀ = [0.0000, 0.0000] (hidden size 2)
+Wxh = [[0.5000, -0.3000], [0.2000, 0.4000]], Whh = [[0.1000, 0.4000], [-0.2000, 0.3000]], bh =
+[0.1000, -0.1000]
+Why = [[0.6000, -0.3000], [0.2000, 0.5000]], by = [0.1000, 0.2000]
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                               Page 9 of 41
+CCE3144 – Deep Learning                                                                 Unit: Recurrent Neural Networks
+
+
+
+Step 1 — Compute h₁ (process the first input)
+We need a1 = Wxh x1 + Whh h0 + bh. Since h0 = [0.0000, 0.0000], the recurrent term contributes nothing yet
+— this is the very first step, so there is no history to bring forward.
+Wxh x₁ = (0.5×1.0 + (−0.3)×0.5, 0.2×1.0 + 0.4×0.5) = (0.35, 0.40)
+
+a₁ = (0.35, 0.40) + (0, 0) + (0.1, −0.1) = [0.4500, 0.3000]
+
+h₁ = tanh([0.4500, 0.3000]) = [0.4219, 0.2913]
+
+Why this step matters
+tanh squashes each pre-activation into (−1, 1). Both components of a₁ were modest in size, so tanh has
+not saturated — the gradient through this step will still be healthy (we revisit this idea in Section 2.7).
+
+Step 2 — Compute h₂ (now the recurrence is active)
+Wxh x₂ = (0.5×0.5 + (−0.3)×(−1.0), 0.2×0.5 + 0.4×(−1.0)) = (0.5500, −0.3000)
+
+Whh h₁ = (0.1×0.4219 + 0.4×0.2913, −0.2×0.4219 + 0.3×0.2913) = (0.1587, 0.0030)
+
+a₂ = (0.5500, −0.3000) + (0.1587, 0.0030) + (0.1, −0.1) = [0.8087, -0.3970]
+
+h₂ = tanh([0.8087, -0.3970]) = [0.6689, -0.3774]
+
+     •    Notice that h₂ depends on x₂ and on h₁ (which itself depended on x₁). This is exactly how the RNN
+          carries information forward — h₂ already contains a trace of x₁.
+
+Step 3 — Compute h₃
+Wxh x₃ = (−0.5500, 0.3000),            Whh h₂ = (−0.0841, −0.2470)
+
+a₃ = [-0.5341, -0.0470]         ⇒      h₃ = tanh([-0.5341, -0.0470]) = [-0.4885, -0.0470]
+
+Step 4 — Produce the output y₃
+y₃ = Why h₃ + by = [[0.6000, -0.3000], [0.2000, 0.5000]] × [-0.4885, -0.0470] + [0.1000, 0.2000] = [-0.1790,
+0.0788]
+
+     •    This is a many-to-one read-out: we only needed an output at the final time step (e.g. classifying
+          the whole sequence). If a prediction were needed at every step, the same Why, by read-out
+          would be applied to h₁ and h₂ as well.
+                                            Table 1. Summary of Worked Example 1.
+
+     t             Input x_t                         Pre-activation a_t         Hidden state h_t = tanh(a_t)
+
+ 1         [1.0000, 0.5000]              [0.4500, 0.3000]                   [0.4219, 0.2913]
+
+ 2         [0.5000, -1.0000]             [0.8087, -0.3970]                  [0.6689, -0.3774]
+
+                                                                            [-0.4885, -0.0470] → y₃ = [-
+ 3         [-0.5000, 1.0000]             [-0.5341, -0.0470]
+                                                                            0.1790, 0.0788]
+
+
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                        Page 10 of 41
+CCE3144 – Deep Learning                                                                    Unit: Recurrent Neural Networks
+
+
+
+2.4 Types of RNN Architectures
+The recurrence itself never changes; what changes from application to application is simply where inputs
+enter and where outputs are read out.
+
+
+
+
+                  Figure 4. Five standard input/output wiring patterns built from the same recurrent cell.
+
+     •    One-to-one — a single input maps to a single output; degenerates to a normal feedforward layer
+          (rarely used with recurrence, shown for completeness).
+     •    One-to-many — one input, a whole output sequence (e.g. image captioning: one image → a
+          sentence).
+     •    Many-to-one — a whole input sequence, one output (e.g. sentiment classification) — this is the
+          pattern used in Worked Example 1 above.
+     •    Many-to-many (aligned) — one output per input, same length (e.g. part-of-speech tagging).
+     •    Many-to-many (encoder–decoder) — an encoder RNN compresses the input into a context
+          vector; a separate decoder RNN generates the (possibly different-length) output sequence from
+          it (e.g. machine translation).
+
+2.5 Training an RNN: Backpropagation Through Time (BPTT)
+     •    Idea: unroll the RNN for all T time steps (as in Figure 2), which turns it into one large feedforward
+          computational graph — then apply ordinary backpropagation to that graph.
+     •    Because the same weight matrix (say Whh) is reused at every time step, its total gradient is the
+          sum of the gradient contributed at every time step:
+                                              ∂L/∂Whh = Σₜ₌₁ᵀ ∂L/∂at ⊗ ht−1
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                           Page 11 of 41
+CCE3144 – Deep Learning                                                               Unit: Recurrent Neural Networks
+
+
+
+     •    Each backward step from ht to ht−1 multiplies the incoming gradient by Whhᵀ and by the local tanh
+          derivative — this repeated multiplication is the root cause of the vanishing/exploding gradient
+          problem (Section 2.7).
+
+
+
+
+Figure 5. BPTT: the loss gradient flows backward through every copy of the network, moving from h3 back to h2, h1 and
+                                                          h0.
+
+2.6 Worked Example 2 — BPTT Gradient Computation
+Given
+Continue Worked Example 1. A target output target₃ = [1.0000, 0.0000] is supplied (one-hot encoding
+for class 0), and the squared-error loss is applied at the final time step only (a many-to-one setup):
+
+                 L = ½ ‖ y₃ − target₃ ‖² = ½ ‖ [-0.1790, 0.0788] − [1.0000, 0.0000] ‖² = 0.6981
+
+Step 1 — Gradient at the output
+∂L/∂y₃ = y₃ − target₃ = [-0.1790, 0.0788] − [1.0000, 0.0000] = [-1.1790, 0.0788]
+
+     •    For squared error, ∂L/∂y = predicted − target — the gradient simply points from the prediction
+          toward the target, scaled by the error.
+
+Step 2 — Backprop into h₃ through the output layer
+∂L/∂h₃ = Whyᵀ ∂L/∂y₃ = [[0.6000, -0.3000], [0.2000, 0.5000]]ᵀ × [-1.1790, 0.0788] = [-0.6916, 0.3931]
+
+Step 3 — Backprop through tanh at t = 3
+     •    The derivative of tanh is 1 − tanh²(a) = 1 − h², evaluated using the already-computed forward-
+          pass value — this is why we saved every h_t during the forward pass.
+∂L/∂a₃ = ∂L/∂h₃ ⊙ (1 − h₃²) = [-0.6916, 0.3931] ⊙ (1 − [-0.4885, -0.0470]²) = [-0.5266, 0.3922]
+
+
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                      Page 12 of 41
+CCE3144 – Deep Learning                                                           Unit: Recurrent Neural Networks
+
+
+
+Step 4 — Gradient contribution to Whh from t = 3
+∂L/∂Whh |₃ = ∂L/∂a₃ ⊗ h₂ = [-0.5266, 0.3922] ⊗ [0.6689, -0.3774] = [[-0.3522, 0.1987], [0.2624, -
+0.1480]]
+
+     •    “⊗” here is an outer product: a gradient vector combined with the hidden state that was
+          multiplied by Whh on the forward pass — this is the standard rule for the gradient of a matrix
+          multiplication.
+
+Step 5 — Propagate the gradient back one more step, to h₂
+∂L/∂h₂ = Whhᵀ ∂L/∂a₃ = [[0.1000, 0.4000], [-0.2000, 0.3000]]ᵀ × [-0.5266, 0.3922] = [-0.1311, -0.0930]
+
+∂L/∂a₂ = [-0.1311, -0.0930] ⊙ (1 − [0.6689, -0.3774]²) = [-0.0725, -0.0797]
+
+∂L/∂Whh |₂ = [-0.0725, -0.0797] ⊗ [0.4219, 0.2913] = [[-0.0306, -0.0211], [-0.0336, -0.0232]]
+
+Step 6 — Propagate back to h₁, then to h₀
+∂L/∂h₁ = [[0.1000, 0.4000], [-0.2000, 0.3000]]ᵀ × [-0.0725, -0.0797] = [0.0087, -0.0529]           ⇒      ∂L/∂a₁ =
+[0.0072, -0.0484]
+
+∂L/∂Whh |₁ = [0.0072, -0.0484] ⊗ [0.0000, 0.0000] = [[0.0000, 0.0000], [0.0000, 0.0000]]
+
+Why this term is zero
+The contribution at t = 1 is multiplied by h₀ = (0, 0), the initial hidden state. With a zero initial state
+there is nothing for the very first step to “multiply against” for this particular weight, so its contribution
+vanishes.
+This is a special case of using a zero initial state, not a general property of BPTT: the gradient signal
+∂L/∂h₁ itself is still non-zero, so it correctly continues to update Wxh and bh through this step.
+
+Step 7 — Total gradient (sum over all time steps)
+                                 ∂L/∂Whh = ∂L/∂Whh|₁ + ∂L/∂Whh|₂ + ∂L/∂Whh|₃
+
+[[0.0000, 0.0000], [0.0000, 0.0000]] + [[-0.0306, -0.0211], [-0.0336, -0.0232]] + [[-0.3522, 0.1987],
+[0.2624, -0.1480]] = [[-0.3828, 0.1776], [0.2287, -0.1712]]
+
+     •    The same mechanism (chain rule + outer product with the relevant input, summed across time)
+          also gives ∂L/∂Wxh = [[0.2342, -0.4506], [-0.2844, 0.4478]] and ∂L/∂Why = [[0.5759, 0.0554], [-
+          0.0385, -0.0037]]; these are left as Practice Question 32.
+
+2.7 The Vanishing and Exploding Gradient Problem
+     •    Look again at Steps 5–6 above: every step back multiplies the gradient by Whhᵀ and by a tanh-
+          derivative factor that is always ≤ 1.
+     •    Over T time steps this becomes roughly a product of T such factors — informally, gradient ∝ λᵀ,
+          where λ reflects the typical size of Whhᵀ × tanh′.
+     •    If λ < 1: the product shrinks exponentially with T — the vanishing gradient problem. Early time
+          steps receive a near-zero learning signal, so the network effectively cannot learn long-range
+          dependencies.
+
+
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                  Page 13 of 41
+CCE3144 – Deep Learning                                                                    Unit: Recurrent Neural Networks
+
+
+
+      •    If λ > 1: the product grows exponentially — the exploding gradient problem. Weight updates
+           become huge and training diverges (loss becomes NaN / oscillates wildly).
+
+
+
+
+  Figure 6. Relative gradient magnitude after k backward steps, for three illustrative values of λ. Even a modest λ = 0.5
+                              leaves almost nothing after 10 steps; λ = 1.5 grows past 50×.
+
+                      Table 2. Illustrative decay/growth of |λ^k| with the number of backward steps k.
+
+          k (steps back)             λ = 0.5 (vanishing)          λ = 1.0 (stable)            λ = 1.5 (exploding)
+
+ 1                                         0.5000                       1.00                         1.5000
+
+ 2                                         0.2500                       1.00                         2.2500
+
+ 3                                         0.1250                       1.00                         3.3750
+
+ 5                                         0.03125                      1.00                         7.5938
+
+ 10                                       0.000977                      1.00                         57.665
+Standard mitigations used in practice:
+
+      •    Gradient clipping — rescale the gradient if its norm exceeds a threshold; a simple, effective fix
+           for exploding gradients.
+      •    Careful weight initialisation (e.g. orthogonal initialisation of Whh) — keeps λ close to 1 for
+           longer.
+      •    Truncated BPTT — limit how many steps gradients are propagated back through, trading long-
+           range learning for stability/speed.
+      •    Gated architectures — LSTM and GRU — redesign the recurrence itself so that gradients can
+           flow across many steps largely unimpeded. This is the main solution used in practice, and is the
+           subject of the next two sections.
+
+
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                           Page 14 of 41
+CCE3144 – Deep Learning                                                           Unit: Recurrent Neural Networks
+
+
+
+
+3. Long Short-Term Memory (LSTM)
+
+3.1 Motivation
+     •    Plain RNNs struggle to learn long-range dependencies because gradients shrink (or blow up)
+          exponentially as they are backpropagated through many time steps (Section 2.7).
+     •    LSTM (Hochreiter & Schmidhuber, 1997) fixes this by giving the network a separate memory
+          channel — the cell state — that information can flow along with only minor, mostly linear
+          changes, instead of being repeatedly squashed through a matrix multiply and a tanh at every
+          step.
+     •    Three gates (small neural networks with sigmoid outputs in (0, 1)) learn when to write to, erase
+          from, and read from this memory.
+
+3.2 Architecture
+     •    Cell state Ct — the long-term memory “conveyor belt” running along the top of the diagram
+          below.
+     •    Forget gate ft — decides what fraction of the old cell state to keep.
+     •    Input gate it — decides how much of the new candidate information to write in.
+     •    Candidate c̃t — the new content proposed for the cell state (not yet gated).
+     •    Output gate ot — decides how much of the (updated) cell state to expose as the hidden state /
+          output.
+
+
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                  Page 15 of 41
+CCE3144 – Deep Learning                                                                  Unit: Recurrent Neural Networks
+
+
+
+
+ Figure 7. Internal structure of one LSTM cell. The cell state Ct runs along the top with only element-wise operations —
+                                     this is what protects the gradient from vanishing.
+
+3.3 Equations
+All four gates/candidates first form the same concatenated input, then apply their own weights:
+
+                    zₜ = [ hₜ₋₁ ; xₜ ]    (concatenate previous hidden state and current input)
+
+                                                        ft = σ(Wf zₜ + bf)
+
+                                                        it = σ(Wi zₜ + bi)
+
+                                                      c̃t = tanh(Wc zₜ + bc)
+
+                                                     Ct = ft ⊙ Ct−1 + it ⊙ c̃t
+
+                                                       ot = σ(Wo zₜ + bo)
+
+                                                       ht = ot ⊙ tanh(Ct)
+
+Significance of each equation:
+
+     •    Forget gate — a sigmoid output near 0 erases that part of memory; near 1 preserves it
+          completely.
+     •    Input gate × candidate — the network only writes new information where the input gate allows
+          it, protecting unrelated parts of memory.
+
+
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                         Page 16 of 41
+CCE3144 – Deep Learning                                                                  Unit: Recurrent Neural Networks
+
+
+
+     •    Cell-state update — additive and element-wise (no matrix multiply, no squashing) — this is the
+          key structural difference from a plain RNN, and is what allows gradients to flow across many steps
+          largely unchanged (Section 3.5).
+     •    Output gate — the cell can hold information in Ct without necessarily exposing it in ht — memory
+          and “what to output right now” are decoupled.
+
+3.4 Worked Example 3 — LSTM Forward Pass, Step by Step
+Given
+Same two inputs as the RNN example, so the two architectures can be compared directly: x₁ = [1.0000,
+0.5000], x₂ = [0.5000, -1.0000]
+Initial state: h₀ = [0.0000, 0.0000], C₀ = [0.0000, 0.0000]
+Wf = [[0.3,0.1,0.2,-0.1],[-0.2,0.4,0.1,0.3]], bf = [0.1000, 0.0000]
+Wi = [[0.2,-0.3,0.4,0.1],[0.1,0.2,-0.2,0.3]], bi = [0.0000, 0.1000]
+Wc = [[0.4,0.1,-0.3,0.2],[-0.1,0.3,0.2,0.1]], bc = [0.1000, -0.1000]
+Wo = [[0.3,0.2,0.1,-0.2],[0.2,-0.1,0.3,0.1]], bo = [0.0000, 0.2000]
+
+Time step t = 1
+Step 1.1 — Build the concatenated input: z₁ = [h₀ ; x₁] = [0, 0, 1.0, 0.5]
+Step 1.2 — Forget gate: Wf z₁ + bf = (0.15, 0.25) + (0.1, 0.0) = (0.25, 0.25) ⇒ f₁ = σ(0.25, 0.25) =
+[0.5622, 0.5622]
+
+Step 1.3 — Input gate: Wi z₁ + bi = (0.45, −0.05) + (0.0, 0.1) = (0.45, 0.05) ⇒ i₁ = σ(0.45, 0.05) = [0.6106,
+0.5125]
+Step 1.4 — Candidate cell content: Wc z₁ + bc = (−0.3, 0.25) + (0.1, −0.1) = (−0.2, 0.15) ⇒ c̃₁ = tanh(−0.2,
+0.15) = [-0.0997, 0.1489]
+Step 1.5 — Update the cell state: C₁ = f₁⊙C₀ + i₁⊙c̃₁ = [0.5622, 0.5622]⊙[0.0000, 0.0000] + [0.6106,
+0.5125]⊙[-0.0997, 0.1489] = [0.0000, 0.0000] + [-0.0609, 0.0763] = [-0.0609, 0.0763]
+     •    Because C₀ = (0, 0), the forget gate has nothing to act on yet — the entire cell state at t = 1 comes
+          from the new candidate, scaled by the input gate.
+Step 1.6 — Output gate: Wo z₁ + bo = (0.0, 0.35) + (0.0, 0.2) = (0.0, 0.55) ⇒ o₁ = σ(0.0, 0.55) = [0.5000,
+0.6341]
+Step 1.7 — Hidden state: h₁ = o₁⊙tanh(C₁) = [0.5000, 0.6341]⊙tanh([-0.0609, 0.0763]) = [-0.0304,
+0.0483]
+
+Time step t = 2
+The identical six equations are applied again, now using h₁ and C₁ from the previous step and the new
+input x₂ = [0.5000, -1.0000]: z₂ = [h₁ ; x₂] = [-0.0304, 0.0483, 0.5000, -1.0000]
+
+                   Quantity                              Pre-activation (Wz + b)          After activation
+
+ Forget gate f₂                                      —                             [0.5734, 0.4441]
+
+ Input gate i₂                                       —                             [0.5198, 0.4272]
+
+ Candidate c̃₂                                       —                             [-0.2518, -0.0823]
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                         Page 17 of 41
+CCE3144 – Deep Learning                                                                  Unit: Recurrent Neural Networks
+
+
+
+
+                   Quantity                              Pre-activation (Wz + b)          After activation
+
+ Cell state C₂ = f₂⊙C₁ + i₂⊙c̃₂                                                    [-0.1658, -0.0013]
+
+ Output gate o₂                                      —                             [0.5623, 0.5595]
+
+ Hidden state h₂ = o₂⊙tanh(C₂)                                                     [-0.0924, -0.0007]
+
+Compare with the plain RNN
+At t = 1 the plain RNN produced h₁ = [0.4219, 0.2913] (Worked Example 1); the LSTM produces h₁ = [-
+0.0304, 0.0483] from the
+same input. The values differ because the LSTM's gates are actively controlling how much new
+information enters the state — with these particular (untrained, illustrative) weights the gates happen
+to let relatively little through. After training on real data, the gates learn to open and close purposefully.
+
+
+3.5 Why LSTM Solves the Vanishing Gradient Problem
+     •    Recall from Section 2.7 that a plain RNN's gradient must pass through a matrix multiply by Whh
+          and a tanh derivative at every single step — repeated many times, this shrinks (or explodes)
+          exponentially.
+     •    The LSTM cell-state recurrence is Ct = ft ⊙ Ct−1 + (new term) — this is additive, so ∂Ct/∂Ct−1 = ft
+          (an element-wise scaling, not a matrix multiply followed by a squashing nonlinearity).
+     •    If the forget gate learns to stay close to 1 for information that should be remembered, the
+          gradient can flow backward through many time steps with almost no shrinkage — an unimpeded
+          “gradient highway” along the cell state.
+     •    This does not eliminate vanishing gradients entirely (very long sequences can still be difficult, and
+          the hidden-state path through tanh still exists), but it dramatically extends how far back an RNN-
+          family model can learn useful dependencies — this is the single biggest reason LSTMs outperform
+          plain RNNs in practice.
+
+3.6 Advantages and Limitations
+     •    Advantages: learns long-range dependencies far better than a plain RNN; the gating mechanism
+          is learned end-to-end from data; remains a strong, well-understood baseline for sequence tasks.
+     •    Limitations: four sets of weights (forget, input, candidate, output) means roughly 4× the
+          parameters of a plain RNN of the same hidden size (Section 6); inherently sequential computation
+          makes it slower to train than fully parallel architectures such as Transformers; still not immune
+          to very long sequences (hundreds/thousands of steps).
+
+
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                         Page 18 of 41
+CCE3144 – Deep Learning                                                                  Unit: Recurrent Neural Networks
+
+
+
+
+4. Gated Recurrent Unit (GRU)
+
+4.1 Motivation
+     •    Introduced by Cho et al. (2014), the GRU asks: can we get most of the benefit of LSTM's gating —
+          protection against vanishing gradients, learned control over memory — with a simpler cell?
+     •    GRU merges the forget and input gates into a single update gate, and removes the separate cell
+          state entirely — the hidden state itself carries long-term memory.
+     •    Fewer gates means fewer parameters (Section 6) and typically faster training, while remaining
+          competitive with LSTM on many tasks.
+
+4.2 Architecture
+     •    Update gate zt — decides how much of the old hidden state to keep versus how much of the new
+          candidate to mix in. It plays the combined role of LSTM's forget and input gates.
+     •    Reset gate rt — decides how much of the past hidden state to use when forming the new
+          candidate content.
+     •    Candidate hidden state h̃t — a proposed new hidden-state value, computed using the reset
+          (partially forgotten) past state.
+     •    No separate cell state — ht itself is the blend of old and new content.
+
+
+
+
+Figure 8. Internal structure of one GRU cell. The final blend node interpolates between the old hidden state and the new
+                                   candidate, controlled entirely by the update gate zt.
+
+
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                         Page 19 of 41
+CCE3144 – Deep Learning                                                               Unit: Recurrent Neural Networks
+
+
+
+
+4.3 Equations
+                    zₜ = [ hₜ₋₁ ; xₜ ]    (concatenate previous hidden state and current input)
+
+                                                      zt = σ(Wz zₜ + bz)
+
+                                                       rt = σ(Wr zₜ + br)
+
+                                             h̃t = tanh(Wh [ rt ⊙ ht−1 ; xt ] + bh)
+
+                                                ht = (1 − zt) ⊙ ht−1 + zt ⊙ h̃t
+
+Significance of each equation:
+
+     •    Update gate — close to 0 keeps the old state almost unchanged; close to 1 replaces it almost
+          entirely with the new candidate.
+     •    Reset gate — close to 0 makes the candidate ignore the past and depend mostly on the current
+          input (useful when starting a new, unrelated chunk of a sequence, e.g. a new sentence).
+     •    Final blend — a convex combination (weights sum to 1) of old state and new candidate. Like the
+          LSTM cell-state update, this blend is dominated by simple arithmetic rather than repeated matrix
+          multiplication, which is what protects the gradient.
+
+4.4 Worked Example 4 — GRU Forward Pass, Step by Step
+Given
+Same two inputs again, for direct comparison with the RNN and LSTM examples: x₁ = [1.0000, 0.5000],
+x₂ = [0.5000, -1.0000]
+Initial hidden state: h₀ = [0.0000, 0.0000]
+Wz = [[0.2,-0.1,0.3,0.1],[0.1,0.3,-0.2,0.2]], bz = [0.1000, 0.0000]
+Wr = [[0.4,0.2,-0.1,0.3],[-0.2,0.1,0.2,-0.3]], br = [0.0000, 0.1000]
+Wh = [[0.3,-0.2,0.4,0.1],[0.2,0.1,-0.3,0.2]], bh = [0.1000, -0.1000]
+
+Time step t = 1
+Step 1.1 — Build the concatenated input: z₁(input) = [h₀ ; x₁] = [0, 0, 1.0, 0.5]
+Step 1.2 — Update gate: Wz·z₁ + bz = (0.35, −0.10) + (0.1, 0.0) = (0.45, −0.10) ⇒ z₁ = σ(0.45, −0.10) =
+[0.6106, 0.4750]
+Step 1.3 — Reset gate: Wr·z₁ + br = (0.05, 0.05) + (0.0, 0.1) = (0.05, 0.15) ⇒ r₁ = σ(0.05, 0.15) = [0.5125,
+0.5374]
+Step 1.4 — Apply the reset gate to the past state: r₁⊙h₀ = [0.5125, 0.5374]⊙[0.0000, 0.0000] = (0, 0)
+— with h₀ = 0 there is nothing to reset yet, so this step has no visible effect at t = 1 (its role becomes clear
+at t = 2).
+Step 1.5 — Candidate hidden state: Wh·[r₁⊙h₀ ; x₁] + bh = (0.45, −0.20) + (0.1, −0.1) = (0.55, −0.30) ⇒
+h̃ ₁ = tanh(0.55, −0.30) = [0.5005, -0.2913]
+Step 1.6 — Final blend (this is h₁): h₁ = (1−z₁)⊙h₀ + z₁⊙h̃ ₁ = (1−[0.6106, 0.4750])⊙[0.0000, 0.0000] +
+[0.6106, 0.4750]⊙[0.5005, -0.2913] = [0.3056, -0.1384]
+     •    Because h₀ = 0, the first term vanishes and h₁ is simply z₁ ⊙ h̃₁ — the update gate scales down
+          how much of the fresh candidate is accepted.
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                      Page 20 of 41
+CCE3144 – Deep Learning                                                              Unit: Recurrent Neural Networks
+
+
+
+Time step t = 2 (now the reset gate has something to act on)
+z₂(input) = [h₁ ; x₂] = [0.3056, -0.1384, 0.5000, -1.0000]
+
+                 Quantity                            After activation              Interpretation
+
+ Update gate z₂                                [0.5560, 0.4229]         how much of h₁ to overwrite
+
+                                                                        how much of h₁ to use when
+ Reset gate r₂                                 [0.4365, 0.6047]
+                                                                        building the candidate
+
+                                                                        the gated (partially forgotten) past
+ r₂ ⊙ h₁                                       [0.1334, -0.0837]
+                                                                        state
+
+ Candidate h̃ ₂                                [0.2513, -0.4067]        proposed new content
+
+ Hidden state h₂ = (1−z₂)⊙h₁ +
+                                               [0.2754, -0.2519]        final blended state
+ z₂⊙h̃ ₂
+
+Compare the three architectures at t = 1
+Same input x₁, same hidden size, three different results: plain RNN h₁ = [0.4219, 0.2913] — LSTM h₁ = [-
+0.0304, 0.0483] — GRU h₁ = [0.3056, -0.1384].
+Each architecture combines the input differently because each has a different internal gating structure
+— this is Practice Question 21.
+
+4.5 GRU vs LSTM
+     •    GRU has no output gate — the full hidden state is always exposed (LSTM can hide part of its cell
+          state from the output via the output gate).
+     •    GRU has no separate cell state — memory and output are the same vector, which simplifies the
+          design but gives slightly less representational flexibility.
+     •    GRU uses one combined update gate where LSTM uses two independent gates (forget, input) —
+          fewer parameters, slightly less fine-grained control.
+     •    In practice, the two perform comparably on many tasks; GRU is often preferred when training
+          speed / parameter budget matters, LSTM when maximum modelling flexibility is preferred. Both
+          comfortably outperform a plain RNN on long sequences.
+
+
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                     Page 21 of 41
+CCE3144 – Deep Learning                                                               Unit: Recurrent Neural Networks
+
+
+
+
+5. Recurrent Neural Network Language Models
+
+5.1 What Is a Language Model?
+     •    A language model assigns a probability to sequences of words, or equivalently, predicts a
+          probability distribution over the next word given all the words seen so far.
+     •    Formally, for a sequence of words w1, …, wT, a language model estimates:
+                     P(w₁, …, wᵀ) = P(w₁) · P(w₂ | w₁) · P(w₃ | w₁, w₂) · ⋯ · P(wᵀ | w₁, …, wᵀ₋₁)
+
+     •    Language models power autocomplete, text generation, machine translation (as the decoder),
+          speech recognition (choosing the most fluent transcription), and are the training objective
+          behind today's large language models.
+
+5.2 An RNN as a Language Model — Architecture
+     •    Step 1 — Embedding: each word is converted from a discrete token into a dense vector (a row
+          of a learned embedding matrix E).
+     •    Step 2 — Recurrence: the embedding is fed into the RNN (or LSTM / GRU) exactly as in Sections
+          2–4; the hidden state accumulates context from every word seen so far.
+     •    Step 3 — Read-out: at every time step, the hidden state is projected to a vector of logits, one per
+          vocabulary word, and passed through softmax to obtain a probability distribution over the next
+          word.
+     •    Training: at each step, the true next word is compared against the predicted distribution using
+          cross-entropy loss; the same shared weights are updated via BPTT, exactly as in Section 2.5.
+
+
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                      Page 22 of 41
+CCE3144 – Deep Learning                                                                      Unit: Recurrent Neural Networks
+
+
+
+
+Figure 9. An RNN language model unrolled across two time steps. The same RNN weights from Section 2 are reused here
+             — only the input (word embeddings) and output (softmax over the vocabulary) layers are new.
+
+5.3 Equations
+                           eₜ = E[ wₜ ]   (look up the embedding row for the current word)
+
+                                      at = Wxh eₜ + Whh ht−1 + bh     ;      ht = tanh(at)
+
+                                                     logitst = Why ht + by
+
+                                           P(word | context) = softmax(logitsₜ)
+
+                          Lₜ = − log P(wₜ₊₁ = target | context)     (cross-entropy loss at step t)
+
+Significance:
+
+     •    Embedding lookup turns a discrete word into a point in continuous space, where similar words
+          can end up close together after training.
+     •    Softmax converts raw logits into a valid probability distribution (non-negative, sums to 1) over
+          the entire vocabulary.
+     •    Cross-entropy loss penalises the model in proportion to how surprised it was by the true next
+          word — a confident wrong prediction is penalised heavily; a confident correct prediction has
+          almost no loss.
+
+5.4 Worked Example 5 — Next-Word Prediction, Step by Step
+Given
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                             Page 23 of 41
+CCE3144 – Deep Learning                                                              Unit: Recurrent Neural Networks
+
+
+
+Toy vocabulary (4 words): {I, love, deep, learning}, indices 0–3.
+Embedding table E (one row per word): I → [0.1000, 0.2000], love → [0.3000, -0.1000], deep → [-
+0.2000, 0.4000], learning → [0.5000, 0.1000]
+Recurrence weights: the same Wxh, Whh, bh from Worked Example 1 (Section 2.3) — re-used here to
+show that the recurrence itself is identical; only the surrounding embedding/read-out layers are new.
+Read-out weights: Why(lm) = [[0.2,0.1],[0.1,-0.2],[-0.3,0.4],[0.4,0.2]], by(lm) = [0.0000, 0.0000, 0.0000,
+0.1000]
+Training sentence: “I love deep learning” → input/target pairs (I → love), (love → deep)
+
+Time step t = 1: input = “I”, target = “love”
+Step 1.1 — Embed the input word: e₁ = E[“I”] = [0.1000, 0.2000]
+Step 1.2 — Update the hidden state (identical recurrence to Section 2.3): a₁ = Wxh e₁ + Whh h₀ + bh =
+[0.0900, 0.0000] ⇒ h₁ = tanh([0.0900, 0.0000]) = [0.0898, 0.0000]
+Step 1.3 — Project to vocabulary-sized logits: logits₁ = Why(lm) h₁ + by(lm) = [0.0180, 0.0090, -0.0269,
+0.1359]
+Step 1.4 — Softmax → probability distribution over the 4 words: P = softmax([0.0180, 0.0090, -0.0269,
+0.1359]) = [I: 0.2456, love: 0.2434, deep: 0.2348, learning: 0.2763]
+Step 1.5 — Cross-entropy loss against the true next word “love”: L₁ = − log P(love) = − log(0.2434) =
+1.4132
+
+Reading the result
+All four probabilities came out close to 0.25 (i.e. close to uniform / random guessing) — unsurprising,
+since these are untrained, illustrative weights, not weights learned from real text. Training would push
+P(love) toward 1 for this context by adjusting every weight along the BPTT gradient path (Section 2.5–
+2.6).
+
+Time step t = 2: input = “love”, target = “deep”
+The hidden state now carries forward information from “I” as well:
+
+                      Quantity                                               Value
+
+ e₂ = E[“love”]                                      [0.3000, -0.1000]
+
+ a₂ = Wxh e₂ + Whh h₁ + bh                           [0.2890, -0.0980]
+
+ h₂ = tanh(a₂)                                       [0.2812, -0.0976]
+
+ logits₂ = Why(lm) h₂ + by(lm)                       [0.0465, 0.0476, -0.1234, 0.1929]
+
+ P (I, love, deep, learning)                         [0.2498, 0.2501, 0.2108, 0.2892]
+
+ L₂ = − log P(deep)                                  1.5569
+
+
+5.5 Perplexity
+     •    Perplexity is the standard way to report how well a language model predicts text; it converts the
+          average cross-entropy loss back onto an intuitive scale:
+                     Average loss = (L₁ + L₂ + ⋯) / T           Perplexity = exp(Average loss)
+
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                     Page 24 of 41
+CCE3144 – Deep Learning                                                          Unit: Recurrent Neural Networks
+
+
+
+For this example: Average loss = (1.4132 + 1.5569) / 2 = 1.4850 ⇒ Perplexity = exp(1.4850) = 4.4151
+     •    Interpretation: a perplexity of 4.42 means the model is, on average, about as “confused” as if it
+          were guessing uniformly at random among roughly 4.4 equally likely words — out of a 4-word
+          vocabulary, that is only slightly better than pure guessing (perplexity 4.0), consistent with these
+          being untrained weights.
+     •    Lower perplexity = better model. A well-trained model on a large vocabulary typically achieves a
+          perplexity far below the vocabulary size, because it learns to concentrate probability mass on
+          plausible next words.
+     •    Perplexity = 1 would mean the model is always 100% certain and always correct (the theoretical
+          best); perplexity equal to the vocabulary size corresponds to uniform random guessing (the
+          practical worst case for a sensible model).
+
+5.6 Beyond the Basics
+     •    Teacher forcing — during training, the true previous word is fed as input at every step (as in
+          Worked Example 5), even if the model's own previous prediction was wrong; this stabilises and
+          speeds up training.
+     •    Generation / sampling — at inference time there is no “true” next word, so the model's own
+          output is fed back as the next input. Common strategies: greedy decoding (always pick the
+          highest-probability word), sampling with temperature, and beam search.
+     •    LSTM / GRU language models — in practice, the plain-RNN recurrence in this section is almost
+          always replaced by an LSTM or GRU cell (Sections 3–4), since long documents need the improved
+          long-range memory.
+     •    Modern context — Transformer-based language models have largely superseded RNN-based
+          ones for state-of-the-art results, but the evaluation concepts introduced here — next-word
+          prediction, cross-entropy loss, and perplexity — remain exactly the same and are used to evaluate
+          Transformer language models too.
+
+
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                 Page 25 of 41
+CCE3144 – Deep Learning                                                                Unit: Recurrent Neural Networks
+
+
+
+
+6. Comparative Summary: RNN vs LSTM vs GRU
+
+6.1 Structural Comparison
+            Feature                          Plain RNN               LSTM                          GRU
+
+                                                                                       Hidden state h_t only
+                                                            Cell state C_t +
+ Memory                             Hidden state h_t only                              (no separate cell
+                                                            hidden state h_t
+                                                                                       state)
+
+                                                            3 (forget, input,
+ Gates                              None                                               2 (update, reset)
+                                                            output)
+
+                                    Fully overwritten
+                                                            Additive, gated            Convex blend, gated
+ Update rule                        every step (through
+                                                            (Section 3.5)              (Section 4.3)
+                                    tanh)
+
+                                    Repeated matrix
+                                                            Protected by additive      Protected by the
+ Gradient flow                      multiply →
+                                                            cell-state highway         blend / update gate
+                                    vanishes/explodes
+
+ Relative parameter
+ count (same hidden                 1×                      ≈ 4×                       ≈ 3×
+ size)
+
+                                    Fastest per step,
+                                                                                       Slightly faster than
+ Typical training speed             hardest to train well   Slower per step
+                                                                                       LSTM per step
+                                    on long sequences
+
+
+6.2 Parameter-Count Formulas
+For input size d and hidden size h, counting every weight matrix and bias:
+
+    Architecture                  Parameter count formula                     Example: d = 100, h = 128
+
+ RNN                      h(d + h + 1)                              29,312
+
+ LSTM                     4 × h(d + h + 1)                          117,248 (= 4 × RNN)
+
+ GRU                      3 × h(d + h + 1)                          87,936 (= 3 × RNN)
+     •    The “4×” and “3×” factors come directly from counting gates: LSTM has 4 sets of weights (forget,
+          input, candidate, output), all sharing the same input shape (d + h) → h; GRU has 3 (update, reset,
+          candidate). This is why, for a fixed parameter budget, a GRU can afford a larger hidden size than
+          an LSTM.
+
+6.3 When to Use Which
+     •    Plain RNN — short sequences, when simplicity/speed matters more than long-range memory, or
+          as a teaching baseline. Rarely the best choice for real long-sequence tasks.
+     •    LSTM — tasks needing the most reliable long-range memory and fine-grained control (separately
+          tunable forget/input/output behaviour); a strong default when compute budget is not tight.
+
+
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                       Page 26 of 41
+CCE3144 – Deep Learning                                                        Unit: Recurrent Neural Networks
+
+
+
+     •    GRU — a strong default when training speed or parameter budget is constrained (e.g.
+          mobile/embedded, very large hidden sizes, limited data); frequently matches LSTM accuracy with
+          fewer resources.
+     •    Neither, in modern large-scale NLP — Transformer-based architectures have largely replaced all
+          three for state-of-the-art language tasks, because they parallelise across time (faster training)
+          and use attention instead of a single recurrent bottleneck. RNN/LSTM/GRU remain important for
+          streaming/online settings, resource-constrained devices, and as the conceptual foundation for
+          sequence modelling.
+
+
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                               Page 27 of 41
+CCE3144 – Deep Learning                                                        Unit: Recurrent Neural Networks
+
+
+
+
+7. Practice Questions
+
+This bank contains 50 questions covering every topic in this unit: 15 multiple-choice questions (Part A)
+and 35 descriptive / numerical questions (Part B). Attempt each question before reading its solution.
+
+Part A — Multiple Choice Questions (Q1–Q15)
+
+Q1. Which of the following is NOT a defining property of sequential data? [1 mark]
+     (A) Every sequence in the dataset must have exactly the same length. ✓ correct
+     (B) The order of elements affects the meaning.
+     (C) Later elements can depend on much earlier elements.
+     (D) Elements are not statistically independent of their neighbours.
+Answer: (A)
+Solution:
+Sequential data is explicitly allowed to be of variable length — sentences, audio clips and time series
+routinely differ in length. This variability is precisely why ordinary feedforward networks (which need a
+fixed-size input) struggle with sequences (Section 1.2), and why RNNs, which process one element at a
+time and share weights across positions, are needed. Options B, C, and D all describe real properties of
+sequential data (Section 1.1).
+
+Q2. What is the single most important structural idea that lets an RNN process sequences of any length
+using a fixed number of parameters? [1 mark]
+     (A) Using convolutional filters that slide over the input.
+     (B) Increasing the hidden size whenever the sequence is longer.
+     (C) Sharing the same weight matrices across all time steps. ✓ correct
+     (D) Training a separate small network for every time step.
+Answer: (C)
+Solution:
+Because Wxh, Whh, Why (and their biases) are reused, identically, at every time step, the total number
+of parameters does not grow with sequence length — a 5-word sentence and a 500-word document are
+processed by exactly the same set of weights, applied repeatedly (Section 1.3, Section 2.1). Option D is
+effectively the opposite of parameter sharing and would not generalise to unseen lengths.
+
+Q3. In the standard update ht = tanh(Wxhxt + Whhht−1 + bh), every component of ht must lie in which
+range? [1 mark]
+     (A) (−1, 1) ✓ correct
+     (B) (0, 1)
+     (C) (−∞, ∞)
+     (D) [0, ∞)
+Answer: (A)
+Solution:
+tanh squashes any real-valued input into the open interval (−1, 1) (Section 2.2). (0, 1) is the range of the
+sigmoid function instead, which is used inside LSTM/GRU gates, not the plain RNN hidden-state update.
+
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                               Page 28 of 41
+CCE3144 – Deep Learning                                                         Unit: Recurrent Neural Networks
+
+
+
+Q4. If a pre-activation value a = 0, what are tanh(a) and its local derivative 1 − tanh²(a) at that point? [1
+mark]
+     (A) 0 and 0
+     (B) 1 and 0
+     (C) 1 and 1
+     (D) 0 and 1 ✓ correct
+Answer: (D)
+Solution:
+tanh(0) = 0, and 1 − tanh²(0) = 1 − 0 = 1. This is the largest possible value the tanh-derivative factor can
+take (it is always ≤ 1) — so even in the best case, each backward step through tanh cannot amplify the
+gradient, only preserve or shrink it. This is the local mechanism underlying the vanishing-gradient
+discussion in Section 2.7.
+
+Q5. In BPTT for a plain RNN, the total gradient of the loss with respect to Whh is obtained by: [1 mark]
+     (A) Summing the gradient contributions from every time step. ✓ correct
+     (B) Using only the gradient contribution from the final time step.
+     (C) Averaging the contributions from only the first and last time steps.
+     (D) Taking the single largest contribution across all time steps.
+Answer: (A)
+Solution:
+Because Whh is reused at every step, the multivariable chain rule requires summing its gradient
+contribution from every time step it was used in: ∂L/∂Whh = Σₜ ∂L/∂aₜ ⊗ hₜ₋₁ (Section 2.5, demonstrated
+numerically in Worked Example 2).
+
+Q6. The vanishing gradient problem in plain RNNs is primarily caused by: [1 mark]
+     (A) Using too few hidden units.
+     (B) Using too large a learning rate.
+     (C) The softmax function saturating.
+     (D) Repeated multiplication by Whhᵀ and a tanh-derivative factor (≤ 1) at every backward step. ✓
+     correct
+Answer: (D)
+Solution:
+Backpropagating through T time steps multiplies the gradient by roughly T copies of Whhᵀ and a tanh-
+derivative factor. If the typical size of this product (informally λ) is less than 1, the gradient shrinks
+exponentially with T (Section 2.7, Figure 6). This has nothing to do with learning rate (B) or softmax (C),
+and too few hidden units (A) is a capacity problem, not a gradient-flow problem.
+
+Q7. Which technique is the standard, simplest fix specifically aimed at exploding gradients? [1 mark]
+     (A) Gradient clipping ✓ correct
+     (B) Dropout
+     (C) Batch normalisation
+     (D) Data augmentation
+Answer: (A)
+Solution:
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                Page 29 of 41
+CCE3144 – Deep Learning                                                           Unit: Recurrent Neural Networks
+
+
+
+Gradient clipping directly rescales the gradient vector when its norm exceeds a chosen threshold, capping
+the size of any single update — a direct, minimal-assumption fix for exploding gradients (Section 2.7).
+Dropout and data augmentation address overfitting, not gradient explosion; batch normalisation targets
+internal covariate shift in deep feedforward stacks.
+
+Q8. How many gate values does a standard LSTM cell compute at each time step? [1 mark]
+     (A) 1
+     (B) 3 ✓ correct
+     (C) 2
+     (D) 4
+Answer: (B)
+Solution:
+An LSTM has exactly three gates: forget (fₜ), input (iₜ), and output (oₜ) — each a sigmoid, each genuinely
+“gating” (scaling) something. The candidate c̃ₜ is also computed from the same weights but is not a gate:
+it uses tanh and proposes new content rather than deciding how much of something to let through. This
+distinction is a common point of confusion (Section 3.2–3.3).
+
+Q9. A forget-gate value ft close to 0 for a particular memory component means: [1 mark]
+     (A) That component of the old cell state is almost entirely kept.
+     (B) The input gate is automatically forced to 0.
+     (C) That component of the old cell state is almost entirely erased. ✓ correct
+     (D) The output gate closes for that component.
+Answer: (C)
+Solution:
+Ct = ft ⊙ Ct−1 + (new term); when ft ≈ 0 for a component, that component of Ct−1 is multiplied by ≈ 0
+and is therefore erased from the running memory (Section 3.3). The forget and input gates are computed
+independently (different weights), so (B) is false in general.
+
+Q10. The main reason the LSTM cell state protects gradients from vanishing is that its update rule is: [1
+mark]
+     (A) Multiplicative and passed through tanh at every step, like a plain RNN.
+     (B) Computed only once, at the final time step.
+     (C) Identical in form to the plain RNN's hidden-state update.
+     (D) Additive and mostly element-wise, with no repeated matrix multiply on the main path. ✓ correct
+Answer: (D)
+Solution:
+Ct = ft ⊙ Ct−1 + it ⊙ c̃t is additive, so ∂Ct/∂Ct−1 = ft (an element-wise scaling), not a matrix multiplication
+followed by a squashing nonlinearity. If ft stays near 1, gradients can flow across many steps with minimal
+shrinkage — the “gradient highway” idea of Section 3.5.
+
+Q11. How many gates does a standard GRU have? [1 mark]
+     (A) 1
+     (B) 3
+     (C) 2 ✓ correct
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                  Page 30 of 41
+CCE3144 – Deep Learning                                                         Unit: Recurrent Neural Networks
+
+
+
+     (D) 4
+Answer: (C)
+Solution:
+A GRU has exactly two gates: the update gate zt and the reset gate rt (Section 4.2). This is one fewer gate-
+type than LSTM's three, which is the direct source of GRU's smaller parameter count (≈ 3× a plain RNN,
+versus ≈ 4× for LSTM — Section 6.2).
+
+Q12. Which statement about the GRU is correct? [1 mark]
+     (A) GRU has a separate cell state distinct from its hidden state.
+     (B) GRU merges the roles of LSTM's forget and input gates into a single update gate. ✓ correct
+     (C) GRU has more parameters than an LSTM of the same hidden size.
+     (D) GRU has an explicit output gate, exactly like LSTM.
+Answer: (B)
+Solution:
+The update gate zt controls the blend ht = (1−zt)⊙ht−1 + zt⊙h̃t — z acting large plays the role of LSTM's
+input gate (write new content), and (1−z) acting large plays the role of the forget gate (keep old content),
+combined into one gate (Section 4.5). GRU has no separate cell state (A is false), fewer parameters than
+LSTM (C is false), and no output gate (D is false).
+
+Q13. In an RNN language model, the softmax layer at each time step outputs: [1 mark]
+     (A) The next hidden state directly.
+     (B) The embedding vector of the input word.
+     (C) A probability distribution over the vocabulary for the next word. ✓ correct
+     (D) The scalar cross-entropy loss value.
+Answer: (C)
+Solution:
+softmax(logitsₜ) converts the raw, unbounded logits into non-negative values that sum to 1 — a valid
+probability distribution over every word in the vocabulary (Section 5.2–5.3). The loss (D) is computed
+from this distribution afterward, using the true next word.
+
+Q14. If a language model's average cross-entropy loss on a test set is L, its perplexity is: [1 mark]
+     (A) L²
+     (B) 1 / L
+     (C) log(L)
+     (D) exp(L) ✓ correct
+Answer: (D)
+Solution:
+Perplexity = exp(average cross-entropy loss) (Section 5.5). This maps loss = 0 (a perfect model) to
+perplexity = 1, and increases perplexity exponentially as the average loss increases, giving a more intuitive
+“effective number of choices” interpretation than the raw loss.
+
+Q15. For the same input size and hidden size, an LSTM has approximately how many times the number
+of parameters of a plain RNN? [1 mark]
+     (A) 1×
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                Page 31 of 41
+CCE3144 – Deep Learning                                                        Unit: Recurrent Neural Networks
+
+
+
+     (B) 4× ✓ correct
+     (C) 2×
+     (D) 3×
+Answer: (B)
+Solution:
+A plain RNN has one set of weights of shape h×(d+h) plus a bias; an LSTM computes four such quantities
+(forget, input, candidate, output) from the same input shape, so its parameter count is 4 × h(d+h+1)
+versus h(d+h+1) for the RNN — exactly 4× (Section 6.2, Table “Parameter-Count Formulas”). GRU, with 3
+such computations, is ≈ 3×.
+
+Part B — Descriptive and Numerical Questions (Q16–Q50)
+Q16. List and briefly explain three properties that any model of sequential data must respect. [3 marks]
+Solution:
+     •    Variable length — sequences in a dataset are rarely all the same length (sentences, audio clips,
+          etc.), so the model cannot assume a fixed-size input.
+     •    Order-dependence — shuffling the elements changes (or destroys) the meaning; e.g. “dog bites
+          man” ≠ “man bites dog”.
+     •    Long-range dependencies — information at one position can affect the correct interpretation of
+          a position much later in the sequence, so the model needs some form of memory (Section 1.1).
+
+Q17. Give two distinct reasons why a plain feedforward network (MLP) with a flattened input vector is
+a poor choice for variable-length text classification. [2 marks]
+Solution:
+     •    Fixed input size: an MLP requires a predetermined number of input features. Flattening text of
+          different lengths into one vector either forces truncation/padding to an arbitrary maximum
+          length, or simply cannot be done consistently.
+     •    No parameter sharing across positions: if position 5 and position 50 of the flattened vector each
+          get their own weights, the network must separately learn what a given word means at every
+          possible position, wasting parameters and failing to generalise to lengths/positions not seen
+          during training (Section 1.2).
+
+Q18. Explain the difference between the “folded” and “unrolled” views of an RNN, and state why the
+unrolled view is useful for training. [2 marks]
+Solution:
+     •    The folded view shows a single RNN cell with a self-loop (feedback arrow) — a compact picture
+          of the recurrence rule itself.
+     •    The unrolled view draws a separate copy of that same cell for every time step t = 1, …, T,
+          connected in a chain, with the identical weights (Wxh, Whh, Why) used in every copy (Figure 2).
+     •    The unrolled view is useful for training because it turns the recurrent (looped) computation into
+          an ordinary directed acyclic graph, to which standard backpropagation can be applied directly —
+          this is exactly what Backpropagation Through Time (BPTT) does (Section 2.5).
+
+
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                               Page 32 of 41
+CCE3144 – Deep Learning                                                         Unit: Recurrent Neural Networks
+
+
+
+Q19. A plain RNN has input size 3 and hidden size 2. Given ht−1 = [0.1000, -0.2000], xt = [1, 0, −1], Wxh =
+[[0.2000, 0.0000, -0.1000], [0.1000, 0.3000, 0.2000]], Whh = [[0.5000, -0.2000], [0.1000, 0.4000]], bh =
+[0.0000, 0.1000], compute ht step by step. [4 marks]
+Solution:
+Step 1 — Input contribution: Wxh xₜ = [0.3000, -0.1000]
+Step 2 — Recurrent contribution: Whh hₜ₋₁ = [0.0900, -0.0700]
+Step 3 — Combine and add bias: aₜ = [0.3000, -0.1000] + [0.0900, -0.0700] + [0.0000, 0.1000] = [0.3900,
+-0.0700]
+Step 4 — Apply tanh: hₜ = tanh([0.3900, -0.0700]) = [0.3714, -0.0699]
+
+Q20. State the formula for the number of trainable parameters in a plain RNN with input size d and
+hidden size h, and explain what each term counts. [3 marks]
+Solution:
+                     Total parameters = h×d (Wxh) + h×h (Whh) + h (bh) = h(d + h + 1)
+
+     •    h×d counts the entries of Wxh, which maps the d-dimensional input to the h-dimensional hidden
+          update.
+     •    h×h counts the entries of Whh, which maps the previous h-dimensional hidden state to its
+          contribution to the new hidden state.
+     •    h counts the entries of the bias vector bh (one bias per hidden unit). Note: this counts only the
+          recurrent layer; a separate output layer Why, by would add h×(output size) + (output size) more.
+
+Q21. In Worked Examples 1, 3 and 4, the plain RNN, LSTM and GRU each processed the identical first
+input x₁, yet produced three different values of h₁. Explain why, and identify which architecture's h₁
+depends on x₁ alone versus which involve additional learned control. [3 marks]
+Solution:
+     •    Plain RNN: h₁ = tanh(Wxh x₁ + Whh h₀ + bh) is a direct, ungated transformation of x₁ (with h₀ = 0
+          contributing nothing) — no learned gate decides how much of x₁ to accept.
+     •    LSTM: h₁ = o₁ ⊙ tanh(C₁), where C₁ = i₁ ⊙ c̃₁ already involves the input gate i₁ deciding how much
+          of the candidate c̃₁ to write in, and the output gate o₁ separately deciding how much of C₁ to
+          expose — two extra learned filters between x₁ and h₁.
+     •    GRU: h₁ = z₁ ⊙ h̃ ₁ (since h₀ = 0), where the update gate z₁ decides how much of the candidate to
+          accept — one learned filter between x₁ and h₁.
+     •    All three use the same raw input x₁, but the RNN applies no learned gating, while LSTM and GRU
+          each pass the resulting candidate through one or more sigmoid gates before it becomes h₁ —
+          with untrained (illustrative) weights these gates simply produce different numbers than the
+          ungated RNN; after training, this gating is precisely what lets LSTM/GRU learn when to accept
+          new information.
+
+Q22. A plain RNN (input size 2, hidden size 2) has Wxh = [[0.3000, 0.1000], [-0.1000, 0.2000]], Whh =
+[[0.2000, 0.1000], [0.0500, -0.3000]], bh = [0.0000, 0.0000]. Given h₀ = [0, 0], x₁ = [0.2000, 0.8000], x₂ =
+[-0.4000, 0.6000], compute h₁ and h₂. [5 marks]
+Solution:
+
+
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                Page 33 of 41
+CCE3144 – Deep Learning                                                            Unit: Recurrent Neural Networks
+
+
+
+Step 1 — t = 1: a₁ = Wxh x₁ + Whh h₀ + bh = [0.1400, 0.1400] ⇒ h₁ = tanh([0.1400, 0.1400]) = [0.1391,
+0.1391]
+Step 2 — t = 2: a₂ = Wxh x₂ + Whh h₁ + bh = [-0.0183, 0.1252] ⇒ h₂ = tanh([-0.0183, 0.1252]) = [-0.0183,
+0.1246]
+     •    Note that both components of a₁ are equal (0.14, 0.14) purely because of the specific numbers
+          chosen here — this is a coincidence of this question's data, not a general property of RNNs.
+
+Q23. Give one real-world example each (different from those already used in these notes) of a many-
+to-one and a many-to-many (aligned) RNN application, and justify why each fits its category. [2 marks]
+Solution:
+     •    Many-to-one: spam-email detection — the model reads a whole sequence of words (the email
+          body) but only needs to output a single decision (spam / not spam) at the end.
+     •    Many-to-many (aligned): named-entity recognition — the model must output a label (e.g. Person
+          / Organisation / Other) for every word in the input sentence, so input length and output length
+          match exactly, one output per input position.
+
+Q24. Derive an expression for the Jacobian ∂ht/∂ht−1 of a plain RNN, and explain its role in BPTT. [4
+marks]
+Solution:
+Step 1 — Write the recurrence: hₜ = tanh(aₜ), where aₜ = Wxh xₜ + Whh hₜ₋₁ + bh
+Step 2 — Differentiate aₜ with respect to hₜ₋₁: ∂aₜ/∂hₜ₋₁ = Whh (the only term in aₜ that depends on hₜ₋₁)
+Step 3 — Apply the chain rule through tanh: ∂hₜ/∂hₜ₋₁ = diag(1 − hₜ²) · Whh
+     •    Here diag(1−hₜ²) is a diagonal matrix of the elementwise tanh-derivative values.
+
+Role in BPTT
+This single-step Jacobian is exactly the factor that gets multiplied in, once per time step, when the
+gradient is propagated backward from hₜ to hₜ₋₁ (Steps 5–6 of Worked Example 2). Its repeated
+application — diag(1−h²)·Whh chained T times — is precisely the mechanism behind the
+vanishing/exploding gradient problem of Section 2.7: if the dominant eigenvalue of this product has
+magnitude < 1, gradients vanish; if > 1, they explode.
+
+Q25. Explain why the tanh derivative being maximised at a = 0 is relevant to the vanishing gradient
+problem. [2 marks]
+Solution:
+     •    1 − tanh²(a) reaches its maximum value of 1 exactly at a = 0, and falls toward 0 as |a| grows (tanh
+          saturates near ±1).
+     •    Since each backward step through tanh multiplies the gradient by this factor, the best possible
+          case at any single step is a multiplier of exactly 1 (no shrinkage) — it can never exceed 1. In
+          practice, hidden units are rarely sitting at exactly a = 0, so the realistic per-step factor is usually
+          noticeably below 1, which compounds multiplicatively over many time steps into the vanishing
+          gradient problem (Section 2.7, and Q4 of Part A).
+
+Q26. A scalar (1-dimensional) RNN has Wxh = 0.5, Whh = 0.8, bh = 0.1, h₀ = 0. Inputs x₁ = 1, x₂ = 0.5. A
+squared-error loss L = ½(h₂ − target)² is applied at t = 2 with target = 0.5. Compute ∂L/∂Whh. [6 marks]
+Solution:
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                   Page 34 of 41
+CCE3144 – Deep Learning                                                        Unit: Recurrent Neural Networks
+
+
+
+Step 1 — Forward pass: a₁ = 0.5×1 + 0.8×0 + 0.1 = 0.6 ⇒ h₁ = tanh(0.6) = 0.537
+a₂ = 0.5×0.5 + 0.8×0.537 + 0.1 = 0.7796 ⇒ h₂ = tanh(0.7796) = 0.6525
+
+Step 2 — Loss and output gradient: L = ½(0.6525 − 0.5)² = 0.0116       ∂L/∂h₂ = h₂ − target = 0.1525
+Step 3 — Backprop through tanh at t = 2: ∂L/∂a₂ = 0.1525 × (1 − 0.6525²) = 0.0876
+Step 4 — Contribution to Whh from t = 2: ∂L/∂Whh|₂ = ∂L/∂a₂ × h₁ = 0.0876 × 0.537 = 0.047
+Step 5 — Propagate back to t = 1, contribution to Whh from t = 1: ∂L/∂h₁ = ∂L/∂a₂ × Whh = 0.0701 ⇒
+∂L/∂a₁ = 0.0499 ⇒ ∂L/∂Whh|₁ = ∂L/∂a₁ × h₀ = ∂L/∂a₁ × 0 = 0
+Step 6 — Total: ∂L/∂Whh = 0 + 0.047 = 0.047
+
+Q27. Explain the difference between the vanishing and exploding gradient problems in terms of the
+quantity λ introduced in Section 2.7. [2 marks]
+Solution:
+     •    λ informally represents the typical magnitude of Whhᵀ combined with the local tanh-derivative
+          factor, applied once per backward time step.
+     •    If λ < 1, repeated multiplication across T steps produces λᵀ → 0 exponentially — the vanishing
+          gradient problem; early time steps get almost no learning signal.
+     •    If λ > 1, λᵀ grows exponentially — the exploding gradient problem; updates become huge and
+          training destabilises. λ = 1 is the (unstable) knife-edge boundary between the two regimes.
+
+Q28. If λ = 0.8, compute the relative gradient magnitude λᵏ after k = 5 and k = 15 backward steps, and
+comment on the result. [3 marks]
+Solution:
+Step 1: λ⁵ = 0.8⁵ = 0.32768
+Step 2: λ¹⁵ = 0.8¹⁵ = 0.035184
+     •    Even with a fairly mild λ = 0.8 (each step keeps 80% of the gradient), only about 32.8% survives
+          after 5 steps, and a mere 3.52% survives after 15 steps — illustrating how quickly the vanishing
+          gradient problem bites even without an extreme per-step shrinkage factor.
+
+Q29. List three standard mitigations for vanishing/exploding gradients in RNNs, and explain one of
+them in detail. [3 marks]
+Solution:
+     •    Gradient clipping, careful (e.g. orthogonal) weight initialisation, truncated BPTT, and gated
+          architectures (LSTM/GRU) are all standard mitigations (Section 2.7).
+     •    Gradient clipping in detail: after computing the gradient for a batch, its norm ‖g‖ is compared
+          against a threshold τ. If ‖g‖ > τ, the gradient is rescaled: g ← g × (τ/‖g‖), which preserves its
+          direction but caps its magnitude. This is cheap to compute, requires no architecture change, and
+          directly prevents the huge, destabilising updates caused by exploding gradients — though it does
+          nothing to fix vanishing gradients.
+
+Q30. Explain what truncated BPTT is and what trade-off it makes. [2 marks]
+Solution:
+
+
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                               Page 35 of 41
+CCE3144 – Deep Learning                                                           Unit: Recurrent Neural Networks
+
+
+
+     •    Truncated BPTT limits how many time steps the gradient is backpropagated through (e.g. only
+          the most recent 20 steps), instead of all the way back to t = 1, even for very long sequences.
+     •    Trade-off: it makes training faster and more memory-efficient, and avoids some numerical
+          instability from very long gradient chains, but it means the model cannot learn dependencies that
+          span more time steps than the truncation window — a direct trade-off between training
+          efficiency/stability and the ability to learn long-range structure.
+
+Q31. In one line each, state the role of the forget gate, input gate, candidate, and output gate in an
+LSTM cell. [4 marks]
+Solution:
+     •    Forget gate ft: decides what fraction of the old cell state Ct−1 to keep.
+     •    Input gate it: decides how much of the new candidate content to write into the cell state.
+     •    Candidate c̃t: proposes the new content itself (not a gate — uses tanh, not sigmoid).
+     •    Output gate ot: decides how much of the (updated) cell state to expose as the hidden state ht.
+
+Q32. Continuing Worked Example 2 (Section 2.6), compute ∂L/∂Wxh and ∂L/∂Why. [6 marks]
+Solution:
+     •    ∂L/∂Wxh follows exactly the same pattern as ∂L/∂Whh (Section 2.6, Steps 4–7), but each time-
+          step's contribution is an outer product with xₜ instead of hₜ₋₁:
+t = 3 contribution: ∂L/∂Wxh|₃ = ∂L/∂a₃ ⊗ x₃ = [-0.5266, 0.3922] ⊗ [-0.5000, 1.0000] = [[0.2633, -0.5266],
+[-0.1961, 0.3922]]
+t = 2 contribution: ∂L/∂Wxh|₂ = ∂L/∂a₂ ⊗ x₂ = [-0.0725, -0.0797] ⊗ [0.5000, -1.0000] = [[-0.0362,
+0.0725], [-0.0399, 0.0797]]
+t = 1 contribution: ∂L/∂Wxh|₁ = ∂L/∂a₁ ⊗ x₁ = [0.0072, -0.0484] ⊗ [1.0000, 0.5000] = [[0.0072, 0.0036],
+[-0.0484, -0.0242]] (non-zero here, unlike ∂L/∂Whh|₁, because x₁ ≠ 0 even though h₀ = 0)
+Total: ∂L/∂Wxh = [[0.0072, 0.0036], [-0.0484, -0.0242]] + [[-0.0362, 0.0725], [-0.0399, 0.0797]] +
+[[0.2633, -0.5266], [-0.1961, 0.3922]] = [[0.2342, -0.4506], [-0.2844, 0.4478]]
+     •    ∂L/∂Why only involves the single time step where the output was read out (t = 3), so there is no
+          sum over time — it is a plain feedforward-layer gradient:
+∂L/∂Why = ∂L/∂y₃ ⊗ h₃ = [-1.1790, 0.0788] ⊗ [-0.4885, -0.0470] = [[0.5759, 0.0554], [-0.0385, -0.0037]]
+
+Q33. A scalar LSTM cell (input size 1, hidden size 1) has h₀ = 0, C₀ = 0, x₁ = 1.0, with weights (applied to z
+= [h₀ ; x₁] = [0, 1]): Wf = [0.5, 0.2], bf = 0; Wi = [0.3, −0.1], bi = 0.1; Wc = [0.6, 0.4], bc = 0; Wo = [0.2,
+0.5], bo = 0.1. Compute f₁, i₁, c̃₁, C₁, o₁, h₁. [6 marks]
+Solution:
+Step 1 — Forget gate: f₁ = σ(0.5×0 + 0.2×1 + 0) = σ(0.2) = 0.5498
+Step 2 — Input gate: i₁ = σ(0.3×0 + (−0.1)×1 + 0.1) = σ(0.0) = 0.5
+Step 3 — Candidate: c̃₁ = tanh(0.6×0 + 0.4×1 + 0) = tanh(0.4) = 0.3799
+Step 4 — Cell state (C₀ = 0, so the forget term vanishes): C₁ = 0.5498×0 + 0.5×0.3799 = 0.19
+Step 5 — Output gate: o₁ = σ(0.2×0 + 0.5×1 + 0.1) = σ(0.6) = 0.6457
+Step 6 — Hidden state: h₁ = o₁ × tanh(C₁) = 0.6457 × tanh(0.19) = 0.1212
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                  Page 36 of 41
+CCE3144 – Deep Learning                                                         Unit: Recurrent Neural Networks
+
+
+
+Q34. Explain, using the forget-gate mechanism, why an LSTM can in principle remember information
+for 100+ time steps, while a plain RNN struggles to. [3 marks]
+Solution:
+     •    If the forget gate learns a value close to 1 for a particular memory component, that component
+          of the cell state is carried forward with almost no attenuation at every step: Ct = 1 × Ct−1 +
+          (small/zero new term) ≈ Ct−1.
+     •    Because this update is additive and element-wise (Section 3.5), the corresponding backward
+          gradient ∂Ct/∂Ct−1 = ft ≈ 1 as well — so information (and its gradient) can survive many steps
+          unchanged, in principle indefinitely.
+     •    A plain RNN has no such mechanism: its hidden state is fully overwritten by tanh(…) at every step,
+          and the corresponding gradient is repeatedly multiplied by Whhᵀ and a tanh-derivative < 1, which
+          compounds toward zero (Section 2.7) — there is no learned way to “protect” a piece of
+          information from this decay.
+
+Q35. Compute the number of trainable parameters in an LSTM layer with input size d = 50 and hidden
+size h = 32. [2 marks]
+Solution:
+Step 1 — Recall the formula: Parameters = 4 × h(d + h + 1) (Section 6.2)
+Step 2 — Substitute: = 4 × 32 × (50 + 32 + 1) = 4 × 32 × 83 = 10,624
+
+Q36. Why does LSTM keep the output gate separate from the cell-state update, instead of always
+outputting the full cell state as the hidden state? [2 marks]
+Solution:
+     •    Decoupling means the cell can continue to store information in Ct (for possible future use)
+          without being forced to expose that information in ht right now.
+     •    This is useful when a piece of context is relevant for a later prediction but irrelevant to the
+          immediate output — e.g. remembering the subject of a sentence while the immediate output
+          should focus on a verb; the output gate lets the network learn when to reveal vs. withhold each
+          memory component (Section 3.2).
+
+Q37. If a particular LSTM memory unit has a forget gate consistently equal to 0.99 and an input gate of
+0 (no new writes) for 100 consecutive steps, what fraction of the original value in that memory unit
+remains? [2 marks]
+Solution:
+With it = 0, the update reduces to Ct = ft × Ct−1 at every step, so after 100 steps: C₁₀₀ = (0.99)¹⁰⁰ × C₀ =
+0.366 × C₀.
+     •    About 36.6% of the original value survives — a forget gate very close to 1 is needed to preserve
+          information over long spans; even f = 0.99 loses almost two-thirds of the signal over 100 steps,
+          showing why training must push ft very close to 1 for genuinely long-range memories.
+
+Q38. What would happen, structurally, if the forget gate were removed and ft were fixed at 1 for every
+unit at every step? [2 marks]
+Solution:
+
+
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                Page 37 of 41
+CCE3144 – Deep Learning                                                            Unit: Recurrent Neural Networks
+
+
+
+     •    The cell-state update would become Ct = Ct−1 + it ⊙ c̃t — memory would only ever accumulate
+          and could never be cleared or overwritten, since old content is never actively erased.
+     •    This can cause the cell state to grow without bound over long sequences (in the worst case), and
+          prevents the network from ever “resetting” its memory when the context genuinely changes (e.g.
+          at a sentence boundary). This is essentially why the forget gate was added to the original LSTM
+          design — without it, the earliest LSTM variant could exhibit unbounded cell-state growth on long
+          sequences.
+
+Q39. In one line each, state the role of the reset gate and the update gate in a GRU cell. [2 marks]
+Solution:
+     •    Reset gate rt: decides how much of the previous hidden state to use when computing the new
+          candidate content h̃ t.
+     •    Update gate zt: decides the blend ratio between keeping the old hidden state and adopting the
+          new candidate, ht = (1−zt)⊙ht−1 + zt⊙h̃ t.
+
+Q40. A scalar GRU cell (input size 1, hidden size 1) has h₀ = 0, x₁ = 1.0, with (applied to [h₀ ; x₁] = [0, 1]):
+Wz = [0.4, 0.1], bz = 0; Wr = [0.2, 0.3], br = 0.1; Wh = [0.5, −0.2], bh = 0.05. Compute z₁, r₁, h̃ ₁, and h₁. [5
+marks]
+Solution:
+Step 1 — Update gate: z₁ = σ(0.4×0 + 0.1×1 + 0) = σ(0.1) = 0.525
+Step 2 — Reset gate: r₁ = σ(0.2×0 + 0.3×1 + 0.1) = σ(0.4) = 0.5987
+Step 3 — Apply reset gate to h₀ (which is already 0, so this has no numeric effect here): r₁ ⊙ h₀ = 0.5987
+×0=0
+Step 4 — Candidate hidden state: h̃ ₁ = tanh(0.5×0 + (−0.2)×1 + 0.05) = tanh(−0.15) = -0.1489
+Step 5 — Final blend: h₁ = (1 − 0.525)×0 + 0.525×(-0.1489) = -0.0782
+
+Q41. Why does GRU not maintain a separate cell state, and what is the practical trade-off of this design
+choice? [2 marks]
+Solution:
+     •    GRU's designers merged the memory and the exposed hidden state into a single vector, relying
+          on the update gate alone to control how much of that single vector changes at each step — there
+          is no second, separately-protected “conveyor belt” as in LSTM (Section 4.1–4.2).
+     •    Trade-off: fewer parameters and a simpler cell (faster to train, Section 6), at the cost of slightly
+          less representational flexibility — GRU cannot store a value in “private” memory while showing
+          something different at the output, the way LSTM's output gate allows.
+
+Q42. Compute the number of trainable parameters in a GRU layer with input size d = 64 and hidden
+size h = 48. [2 marks]
+Solution:
+Step 1 — Recall the formula: Parameters = 3 × h(d + h + 1) (Section 6.2)
+Step 2 — Substitute: = 3 × 48 × (64 + 48 + 1) = 3 × 48 × 113 = 16,272
+
+
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                   Page 38 of 41
+CCE3144 – Deep Learning                                                              Unit: Recurrent Neural Networks
+
+
+
+Q43. What does the GRU update reduce to when zt = 0 for all dimensions? What about when zt = 1? [2
+marks]
+Solution:
+     •    zt = 0: ht = 1×ht−1 + 0×h̃ t = ht−1 — the hidden state is left completely unchanged; the new
+          candidate is entirely ignored.
+     •    zt = 1: ht = 0×ht−1 + 1×h̃ t = h̃ t — the old state is completely discarded and replaced by the new
+          candidate.
+     •    In practice zt learns intermediate values, blending the two continuously depending on the input.
+
+Q44. Give an intuitive example of when a GRU's reset gate would be useful with a value close to 0. [2
+marks]
+Solution:
+     •    Consider a document that is a list of unrelated short product reviews concatenated together. At
+          the start of a new review, the content of the previous review is no longer relevant context for
+          interpreting the new one.
+     •    A reset gate close to 0 at that boundary lets the candidate h̃ t be computed almost entirely from
+          the current input (ignoring the stale ht−1), effectively letting the network “start fresh” without
+          needing to wait for the update gate to slowly overwrite the old state (Section 4.3).
+
+Q45. Write the chain-rule factorisation of P(w₁, …, wᵀ) used by a language model, and explain in words
+what each factor represents. [3 marks]
+Solution:
+                          P(w₁, …, wᵀ) = P(w₁) · P(w₂|w₁) · P(w₃|w₁,w₂) · ⋯ · P(wᵀ|w₁,…,wᵀ₋₁)
+
+     •    This is simply the probability chain rule applied to a sequence: the joint probability of the whole
+          sequence equals the product of each word's probability conditioned on every word before it.
+     •    An RNN language model approximates every conditional factor P(wₜ | w₁,…,wₜ₋₁) with a single
+          softmax output at step t, whose entire dependence on the (arbitrarily long) history w₁,…,wₜ₋₁ is
+          compressed into the fixed-size hidden state hₜ₋₁ (Section 5.1–5.2).
+
+Q46. A language model with vocabulary size 5 produces logits = [1.2000, 0.5000, -0.3000, 2.0000,
+0.1000] at some time step. The true next word has index 3 (0-indexed). Compute the softmax
+probabilities and the cross-entropy loss. [5 marks]
+Solution:
+Step 1 — Exponentiate each logit: exp([1.2000, 0.5000, -0.3000, 2.0000, 0.1000]) — compute e^1.2,
+e^0.5, e^−0.3, e^2.0, e^0.1
+Step 2 — Normalise (divide by the sum) to get softmax probabilities: P = [0.2337, 0.1161, 0.0522,
+0.5202, 0.0778]
+Step 3 — Cross-entropy loss uses only the probability assigned to the true index (3): L = − log P[3] = −
+log(0.5202) = 0.6535
+     •    Notice index 3 also has the largest logit (2.0) and correspondingly the largest probability (≈ 0.52)
+          — since this is also the target, the loss is relatively small, reflecting a fairly confident, correct
+          prediction.
+
+
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                                     Page 39 of 41
+CCE3144 – Deep Learning                                                        Unit: Recurrent Neural Networks
+
+
+
+Q47. A language model achieves an average cross-entropy loss of 2.3 nats per word on a test set.
+Compute its perplexity. [2 marks]
+Solution:
+Perplexity = exp(average loss) = exp(2.3) = 9.9742
+     •    A perplexity of ≈ 10 means the model's uncertainty at each step is comparable to choosing
+          uniformly among about 10 equally likely words, regardless of how large the true vocabulary is.
+
+Q48. Explain teacher forcing and describe one problem it can cause at inference (generation) time. [3
+marks]
+Solution:
+     •    Teacher forcing: during training, the model is always fed the true previous word as input at each
+          step, regardless of what the model itself would have predicted (Section 5.6).
+     •    Problem — exposure bias: at generation time there is no ground truth to feed back in, so the
+          model must feed in its own (possibly imperfect) previous prediction. Since the model never
+          practised recovering from its own mistakes during training, small errors can compound as
+          generation proceeds, leading to increasingly poor output quality — a mismatch between the
+          training and inference conditions.
+
+Q49. Give one application example each for plain RNN, LSTM, and GRU, and briefly justify each choice.
+[3 marks]
+Solution:
+     •    Plain RNN: a short, fixed-pattern signal classifier (e.g. detecting a simple gesture from a few
+          dozen accelerometer readings) — the sequences are short enough that vanishing gradients are
+          not a serious concern, so the simplicity and speed of a plain RNN is an acceptable trade-off.
+     •    LSTM: long-document sentiment analysis or long-range time-series forecasting (e.g. multi-week
+          demand forecasting) — the long-range memory and fine-grained gating are worth the extra
+          parameters when dependencies span long distances.
+     •    GRU: on-device / mobile keyboard next-word prediction — a tight compute and memory budget
+          favours GRU's roughly 25% parameter saving over LSTM, while still comfortably outperforming a
+          plain RNN.
+
+Q50. Summarise, in a short set of bullet points, the historical progression from RNN → LSTM → GRU →
+Transformer, giving the main motivation behind each step. [4 marks]
+Solution:
+     •    RNN: introduced parameter sharing across time via a recurrent hidden state, solving the fixed-
+          input-size and no-memory problems of feedforward networks (Section 1–2).
+     •    → LSTM: added gated, additive memory (the cell state) specifically to fix the vanishing gradient
+          problem that crippled plain RNNs on long sequences (Section 2.7 → Section 3).
+     •    → GRU: simplified LSTM's gating (2 gates instead of 3, no separate cell state) to reduce
+          parameters and training cost while keeping most of the long-range-memory benefit (Section 4).
+     •    → Transformer (beyond this unit): replaced recurrence entirely with self-attention, allowing
+          every position to directly attend to every other position. This removes the sequential step-by-
+          step bottleneck (enabling full parallelisation across time during training) and provides a more
+          direct path for gradients/information between distant positions than even LSTM/GRU can offer.
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                               Page 40 of 41
+CCE3144 – Deep Learning                                                        Unit: Recurrent Neural Networks
+
+
+
+     •    Each step's motivation was the same underlying goal: let information from arbitrarily far back in
+          a sequence influence the current prediction, as efficiently as possible.
+
+
+
+
+Dr. Manoj Kumar Sharma — Manipal University Jaipur                                               Page 41 of 41
+

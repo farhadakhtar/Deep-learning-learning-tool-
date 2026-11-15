@@ -1,0 +1,2113 @@
+CCE3144 Deep Learning                                                           Unit: Deep Unsupervised Learning
+
+
+
+
+                        CCE3144 Deep Learning [3 0 0 3]
+                                    Dr. Manoj Kumar Sharma
+                                      Manipal University Jaipur
+
+                                          LECTURE NOTES
+
+
+                           Unit: Deep Unsupervised Learning
+
+  Syllabus — Deep Unsupervised Learning
+  Deep unsupervised learning: Autoencoders, Variational Autoencoders, Generative Adversarial
+  Networks (GAN), Maximum Entropy distributions. Deep Belief Nets, Deep Boltzmann Machine,
+  Convolutional Boltzmann Machine.
+
+
+
+  How to use these notes
+     ● Concepts are given as bullet points, not paragraphs — quick to revise before an exam.
+     ● Every model has a block diagram first, so you can see the architecture before the math.
+     ● Every major formula is followed by a fully worked numerical example, solved step-by-step with
+       the significance of each step explained.
+     ● 50 practice questions are included at the end (15 MCQs + 35 short/long/numerical questions),
+       all with detailed solutions.
+
+
+
+
+                                     Page 1 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                           Unit: Deep Unsupervised Learning
+
+
+Contents
+
+1. Introduction to Deep Unsupervised Learning
+
+2. Autoencoders — Architecture, Types, Worked Examples
+
+3. Variational Autoencoders (VAE) — ELBO, Reparameterization Trick
+
+4. Generative Adversarial Networks (GAN) — Minimax Game, Training
+
+5. Maximum Entropy Distributions — Principle and Derivations
+
+6. Restricted Boltzmann Machines (RBM) and Deep Belief Networks (DBN)
+
+7. Deep Boltzmann Machines (DBM)
+
+8. Convolutional Boltzmann Machine (Convolutional DBN)
+
+9. Summary / Quick Revision Tables
+
+10. Practice Questions — Section A: 15 Multiple Choice Questions (with solutions)
+
+11. Practice Questions — Section B: 35 Short / Long / Numerical Questions (with detailed solutions)
+
+12. References
+
+
+
+
+                                     Page 2 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                           Unit: Deep Unsupervised Learning
+
+
+1. Introduction to Deep Unsupervised Learning
+
+1.1 What is Unsupervised Learning?
+  ● Learning from data x that has no labels y — only the inputs are given, no “correct answer” is
+    supplied.
+  ● Goal: discover hidden structure, patterns, or the underlying probability distribution p(x) that
+    generated the data.
+  ● Classical examples: k-means clustering, PCA, hierarchical clustering — these use shallow, hand-
+    designed feature spaces.
+  ● Contrast with supervised learning: no loss like cross-entropy against a ground-truth label; the
+    “supervision” instead comes from the data itself (e.g. reconstruct the input, distinguish real vs.
+    fake, model the data density).
+
+1.2 Why “Deep” Unsupervised Learning?
+  ● Classical methods (PCA, k-means) can only capture linear / shallow structure.
+  ● Real data (images, speech, text) lies on complex, non-linear low-dimensional manifolds inside a
+    high-dimensional space.
+  ● Deep neural networks, stacked in multiple layers, learn a hierarchy of features — simple patterns
+    in early layers combine into abstract concepts in later layers — exactly what is needed to model
+    such manifolds.
+  ● This hierarchy is learned automatically from unlabelled data, which is abundant, instead of
+    requiring expensive manual labelling.
+
+1.3 Why do we care? (Applications)
+  ● Representation / feature learning for downstream supervised tasks (pre-training).
+  ● Data generation — synthesizing realistic images, audio, text (GANs, VAEs).
+  ● Dimensionality reduction, denoising, anomaly detection (autoencoders).
+  ● Density estimation — learning p(x) explicitly to compute likelihoods, detect outliers (RBM, DBN,
+    DBM).
+  ● Data compression and efficient coding (autoencoders, RBMs).
+
+1.4 Roadmap: The Model Families in this Unit
+
+
+
+
+                                     Page 3 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                   Unit: Deep Unsupervised Learning
+
+
+
+
+          Fig. 1.1 — The deep unsupervised learning models covered in this unit, grouped by how they learn p(x).
+
+
+  Key idea that unifies this whole unit
+     ● Every model in this unit answers the same question differently: “How do I learn a good model
+       of p(x) using only unlabelled data?”
+     ● Autoencoder / VAE: learn by compressing and reconstructing x through a bottleneck.
+     ● GAN: learn by playing a two-player minimax game between a generator and a discriminator.
+     ● Maximum Entropy: choose the least-biased distribution consistent with known constraints —
+       the theoretical justification behind many of these models.
+     ● RBM / DBN / DBM / ConvBM: define an energy function over (visible, hidden) units and learn
+       its parameters so that observed data has low energy (high probability).
+
+
+
+
+                                           Page 4 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                  Unit: Deep Unsupervised Learning
+
+
+2. Autoencoders
+
+2.1 Concept and Motivation
+  ● An autoencoder is a neural network trained to copy its input to its output, through a narrow
+    bottleneck.
+  ● Because it is forced through a bottleneck, it cannot just memorise — it must learn a compressed,
+    useful representation of the data.
+  ● It is trained with no labels — the “label” for input x is x itself. This is called self-supervised learning.
+  ● Two parts, trained jointly, end-to-end, by gradient descent:
+        ◦ Encoder f: maps input x to a latent code z (compression)
+        ◦ Decoder g: maps the code z back to a reconstruction x̂ (decompression)
+
+2.2 Architecture
+
+
+
+
+              Fig. 2.1 — Autoencoder: input is compressed to a low-dimensional code z, then reconstructed.
+
+
+2.3 Mathematical Formulation
+For input x ∈ ℝⁿ:
+
+                                        Encoder:        z = f(x) = σ(Wx + b)
+
+                                       Decoder:        x̂ = g(z) = σ(W′z + b′)
+
+where σ is a non-linear activation (sigmoid / ReLU / tanh), and W, b, W′, b′ are learned weights and
+biases.
+
+Training minimises the reconstruction loss between x and x̂, most commonly Mean Squared Error:
+
+                                          L(x, x̂) = (1) / (n) Σi=1n (xi − x̂i)2
+
+                                          Page 5 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                  Unit: Deep Unsupervised Learning
+
+  ● Significance: minimising this loss is exactly what forces the bottleneck to keep only the most
+    important information needed to reconstruct x — unimportant/noisy variation is discarded.
+
+
+✎ Worked Example 2.1 — Forward Pass Through a Small Autoencoder
+Given input x = [0.8, 0.3] (n = 2), a 1-unit bottleneck, sigmoid activation, encoder weights W = [0.5, −0.3],
+bias b = 0.1, decoder weights W′ = [0.6, 0.4]ᵀ, bias b′ = [0, 0]. Find the reconstruction and the loss.
+
+  ● Step 1 — Encoder pre-activation (weighted sum of inputs). This is the encoder deciding how much
+    each input contributes to the compressed code:
+
+                        z_pre = (0.5)(0.8) + (−0.3)(0.3) + 0.1 = 0.40 − 0.09 + 0.10 = 0.41
+
+  ● Step 2 — Apply activation. The sigmoid squashes the code into (0,1) and adds the non-linearity that
+    lets the network represent more than a linear projection (unlike PCA):
+
+                                       z = σ(0.41) = 1 / (1 + e−0.41) = 0.6011
+
+  ● Step 3 — Decoder pre-activations. The single code value z is expanded back out to 2 numbers, one
+    per output unit:
+
+                        x̂1,pre = (0.6)(0.6011) = 0.3606,       x̂2,pre = (0.4)(0.6011) = 0.2404
+
+  ● Step 4 — Apply activation to get the reconstruction:
+
+                                 x̂ = [σ(0.3606), σ(0.2404)] = [0.5892, 0.5598]
+
+  ● Step 5 — Reconstruction loss (MSE). This single number is the training signal — backpropagation
+    adjusts W, b, W′, b′ to reduce it:
+
+            L = (1) / (2)[(0.8 − 0.5892)2 + (0.3 − 0.5598)2] = (1) / (2)[0.0444 + 0.0675] = 0.0560
+
+
+
+  ℹ Interpretation: the code z = 0.6011 is a single number that had to summarise both 0.8 and 0.3. The
+  loss (0.056) tells us how much information was lost in that compression — with only 1 bottleneck
+  unit for 2 inputs, some loss is expected.
+
+
+
+2.4 Types of Autoencoders
+
+          Type                      Key Idea                             Mechanism                         Typical Use
+
+                                                           Forces compression; simplest,           Dimensionality reduction,
+ Undercomplete            Bottleneck dim < input dim
+                                                           most common form                        feature learning
+
+                                                                                                   Used only combined with
+                                                           Needs an extra constraint (below)
+ Overcomplete             Bottleneck dim ≥ input dim                                               sparsity/noise/contractive
+                                                           or it just learns identity
+                                                                                                   penalty
+
+                          Penalise number of ‘active’      Adds sparsity penalty (e.g. KL-         Learn interpretable,
+ Sparse
+                          hidden units                     divergence) on hidden activations       disentangled features
+
+
+
+
+                                          Page 6 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                    Unit: Deep Unsupervised Learning
+
+
+          Type                       Key Idea                              Mechanism                         Typical Use
+
+                                                             Input is corrupted (noise/masking)
+                           Reconstruct clean x from                                                 Robust features, noise
+ Denoising (DAE)                                             before encoding; target is original
+                           corrupted x̃                                                             removal
+                                                             x
+
+                                                             Adds ‖∂h/∂x‖² penalty (Jacobian        Robust, locally-invariant
+ Contractive (CAE)         Penalise sensitivity to input
+                                                             norm) to loss                          representations
+
+
+
+Sparse Autoencoder — the sparsity penalty
+Let ρ be the desired (small) target sparsity, e.g. 0.05, and ρ̂ⱼ the average activation of hidden unit j over
+the training batch. The sparsity penalty for unit j is the KL-divergence between two Bernoulli
+distributions:
+
+                              KL(ρ ‖ ρ̂j) = ρ log((ρ) / (ρ̂j)) + (1−ρ) log((1−ρ) / (1−ρ̂j))
+
+
+✎ Worked Example 2.2 — Sparsity Penalty Computation
+Given target sparsity ρ = 0.05 and observed average activation ρ̂ = 0.20, find the KL penalty (natural log).
+
+  ● Step 1 — First term (penalises unit being “on” too often relative to target):
+
+                        0.05 × ln(0.05/0.20) = 0.05 × ln(0.25) = 0.05 × (−1.3863) = −0.0693
+
+  ● Step 2 — Second term (penalises the “off” probability mismatch):
+
+                        0.95 × ln(0.95/0.80) = 0.95 × ln(1.1875) = 0.95 × 0.1718 = 0.1632
+
+  ● Step 3 — Sum:
+
+                                KL(0.05 ‖ 0.20) = −0.0693 + 0.1632 = 0.0939 nats
+
+ℹ Since ρ̂ (0.20) is far above the target ρ (0.05), the penalty is clearly positive; it would be exactly 0 if ρ̂ =
+ρ, and gradient descent pushes ρ̂ back toward ρ, i.e. towards a sparser (mostly-off) hidden layer.
+
+
+
+2.5 Applications
+  ● Dimensionality reduction (a non-linear generalisation of PCA).
+  ● Image denoising and inpainting.
+  ● Anomaly / fraud detection (anomalies have high reconstruction error).
+  ● Pre-training deep networks layer-by-layer before supervised fine-tuning.
+  ● Learned code z used as a compact feature vector for retrieval, clustering, or as input to another
+    model (e.g. the encoder of a VAE, Section 3).
+
+
+
+
+                                            Page 7 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                     Unit: Deep Unsupervised Learning
+
+
+3. Variational Autoencoders (VAE)
+
+3.1 Motivation: Why Not Just Use a Plain Autoencoder?
+  ● A plain autoencoder's latent space has no structure — codes for real inputs may be scattered in
+    isolated clusters with large empty gaps between them.
+  ● If we pick a random point z in that space and decode it, the result is usually garbage — so plain
+    autoencoders are poor generative models.
+  ● VAE fixes this by treating the code as random, not deterministic: it forces the distribution of z (for
+    all the data) to look like a simple, known prior, typically N(0, I).
+  ● Because the whole latent space is now “filled in” and shaped like a Gaussian, any z sampled from
+    N(0, I) decodes into something realistic — VAE can generate new data.
+
+3.2 Probabilistic Formulation
+  ● Assume data is generated as: sample a latent z ∼ p(z) = N(0, I), then sample x ∼ pθ(x|z) (the
+    decoder).
+  ● We want the true posterior p(z|x), but it is intractable, so we approximate it with an encoder
+    network qφ(z|x) — this is why the method is called “variational” (variational = approximate-
+    inference).
+  ● qφ(z|x) is chosen to be Gaussian: qφ(z|x) = N( μ(x), σ²(x) ), with μ(x) and σ(x) output by the encoder
+    network.
+
+3.3 Architecture
+
+
+
+
+    Fig. 3.1 — VAE: encoder outputs a distribution (μ, σ), a sample z is drawn via the reparameterization trick, decoder
+                                                       reconstructs x.
+
+
+3.4 The Reparameterization Trick
+  ● Problem: we need to backpropagate through the sampling step z ~ N(μ, σ²), but sampling is a
+    random, non-differentiable operation.
+
+                                           Page 8 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                              Unit: Deep Unsupervised Learning
+
+  ● Trick: rewrite the random sample as a deterministic function of μ, σ and an independent noise
+    source ε:
+
+                                      z = μ + σ ⊙ ε,            ε ∼ N(0, I)
+
+  ● Now the randomness (ε) is external to the network, and z is a differentiable function of μ and σ —
+    gradients can flow from the reconstruction loss, through z, back into the encoder’s μ and σ outputs,
+    and hence into all encoder weights.
+
+3.5 Deriving the Evidence Lower Bound (ELBO)
+We cannot maximise log p(x) directly (it needs the intractable integral over z), so we derive a tractable
+lower bound on it, step by step:
+
+Step 1 — Introduce the latent variable by marginalisation:
+
+                                         log p(x) = log ∫ p(x, z) dz
+
+Step 2 — Multiply and divide by qφ(z|x) (valid since qφ(z|x) > 0). This turns the integral into an
+expectation under q:
+
+                                   log p(x) = log Eq[ p(x,z) / qφ(z|x) ]
+
+Step 3 — Apply Jensen's Inequality. Because log(·) is concave, log(E[X]) ≥ E[log(X)]:
+
+                           log p(x) ≥ Eq[ log p(x,z) − log qφ(z|x) ] ≡ ELBO
+
+  ● Significance: this step is what makes the objective tractable — we now have a lower bound we CAN
+    compute and maximise, instead of the exact log p(x) which we cannot.
+Step 4 — Factor p(x,z) = p(x|z)·p(z) and split the expectation into two interpretable terms:
+
+                           ELBO = Eq[ log pθ(x|z) ]         −    KL( qφ(z|x) ‖ p(z) )
+
+  ● Reconstruction term E[log pθ(x|z)]: how well the decoder reconstructs x from a sampled z — pulls
+    z toward encoding useful information.
+  ● Regularisation term KL(qφ(z|x)‖p(z)): keeps the encoder's distribution close to the prior N(0,I) —
+    keeps the latent space smooth and generative.
+
+  Final VAE training objective (minimised)
+  Since we minimise a loss rather than maximise the ELBO, we flip the sign:
+
+                              LVAE = − Eq[ log pθ(x|z) ] + KL( qφ(z|x) ‖ p(z) )
+
+                              ≡ Reconstruction Loss + KL Divergence Loss
+
+For a Gaussian encoder qφ(z|x)=N(μ,σ²) and prior N(0,1), the KL term has a convenient closed form (per
+latent dimension):
+
+                          KL( N(μ,σ²) ‖ N(0,1) ) = (1) / (2)( μ2 + σ2 − ln(σ2) − 1 )
+
+
+✎ Worked Example 3.1 — Reparameterization and KL Divergence
+The encoder, for a given x, outputs μ = 0.3, σ = 0.5. A noise sample ε = 1.0 is drawn from N(0,1). Find (a)
+the sampled latent z, and (b) the KL-divergence loss term.
+
+                                      Page 9 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                              Unit: Deep Unsupervised Learning
+
+  ● Step 1 — Reparameterization trick (this IS the sampling step, made differentiable):
+
+                                      z = μ + σ·ε = 0.3 + (0.5)(1.0) = 0.8
+
+  ● Step 2 — Compute σ² and ln(σ²) needed for the KL formula:
+
+                                       σ2 = 0.25,      ln(0.25) = −1.3863
+
+  ● Step 3 — Substitute into the closed-form KL expression:
+
+                    KL = (1) / (2)(0.09 + 0.25 − (−1.3863) − 1) = (1) / (2)(0.7263) = 0.3632
+
+
+
+  ℹ Interpretation: z = 0.8 is the actual latent value passed to the decoder this iteration. KL = 0.363 nats
+  is the “cost” charged for this encoder distribution N(0.3, 0.25) being different from the prior N(0,1)
+  — training pushes μ toward 0 and σ toward 1 unless the reconstruction term needs otherwise.
+
+
+
+3.6 Applications
+  ● Generating new, realistic samples (faces, digits, molecules) by decoding z ~ N(0,I).
+  ● Smooth latent-space interpolation between two data points.
+  ● Semi-supervised learning and anomaly detection using the likelihood/ELBO as a score.
+  ● Representation learning where a smooth, disentangled latent space matters (unlike plain AE).
+
+
+
+
+                                       Page 10 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                   Unit: Deep Unsupervised Learning
+
+
+4. Generative Adversarial Networks (GAN)
+
+4.1 Concept: A Two-Player Game
+  ● GAN trains two networks that compete against each other:
+        ◦ Generator G: takes random noise z ~ p(z) and tries to produce fake samples G(z) that look real.
+        ◦ Discriminator D: takes a sample (real or fake) and outputs the probability that it is real.
+  ● G is trained to fool D; D is trained to catch G. Neither ever sees labelled data — the “supervision”
+    comes entirely from this competition, so training is unsupervised at the data level.
+  ● Unlike VAE, GAN has no explicit reconstruction loss and no explicit density p(x) — it learns to
+    sample from p(x) implicitly.
+
+4.2 Architecture
+
+
+
+
+  Fig. 4.1 — GAN: Generator produces fakes from noise; Discriminator scores real vs. fake; gradients flow back to train
+                                                        both.
+
+
+4.3 The Minimax Objective
+                        minG maxD V(D,G) = Ex~pdata[ log D(x) ] + Ez~pz[ log(1 − D(G(z))) ]
+
+  ● D wants to maximise V: push D(x) → 1 for real x, and D(G(z)) → 0 for fakes.
+  ● G wants to minimise V: push D(G(z)) → 1, i.e. make the discriminator think fakes are real.
+  ● Training alternates: a few steps of gradient ascent on D (with G fixed), then a step of gradient
+    descent on G (with D fixed).
+
+Deriving the Optimal Discriminator D*(x)
+For a fixed generator G (hence a fixed generator distribution pᵍ), find the D that maximises V:
+
+Step 1 — Rewrite the second expectation as an integral over x using x = G(z):
+
+                               V(D,G) = ∫x [ pdata(x) log D(x) + pg(x) log(1−D(x)) ] dx
+
+                                          Page 11 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                             Unit: Deep Unsupervised Learning
+
+Step 2 — For each fixed x this is a scalar function of y = D(x) alone: f(y) = a·log y + b·log(1−y), with a =
+p_data(x), b = p_g(x). Maximise using df/dy = 0:
+
+                          a/y − b/(1−y) = 0 ⇒ a(1−y) = by ⇒ y = a /(a+b)
+
+Step 3 — Substitute back a, b:
+
+
+
+                                    D*(x) = pdata(x) / ( pdata(x) + pg(x) )
+
+  ● Significance: at the Nash equilibrium the generator matches the data exactly, pᵍ = p_data, so D*(x)
+    = 1/2 everywhere — the best possible discriminator can do no better than a coin flip. This is the
+    theoretical training target for a GAN.
+
+
+✎ Worked Example 4.1 — Discriminator and Generator Loss
+For one real sample, D(x) = 0.7; for one fake sample, D(G(z)) = 0.4. Compute the discriminator loss and
+the (non-saturating) generator loss.
+
+  ● Step 1 — Discriminator loss (negative of what D maximises — D wants this LOW):
+
+                         LD = −[ log D(x) + log(1−D(G(z))) ] = −[ ln(0.7) + ln(0.6) ]
+
+                                   = −[ (−0.3567) + (−0.5108) ] = 0.8675
+
+  ● Step 2 — Generator loss, non-saturating form (used in practice — G wants this LOW):
+
+                                   LG = − log D(G(z)) = − ln(0.4) = 0.9163
+
+
+
+  ℹ Interpretation: D(G(z)) = 0.4 means D is already leaning toward “fake” but not fully certain — both
+  losses are moderate, meaning both networks still have learning signal to improve.
+
+
+
+4.4 Training Challenges
+
+(a) Vanishing Gradients — Why the Non-Saturating Loss is Used
+  ● Original minimax loss for G is log(1 − D(G(z))), minimised by G.
+  ● Early in training, G is poor, so D confidently rejects fakes: D(G(z)) is small (say 0.2).
+Compare the gradient magnitude of the two loss formulations with respect to s = D(G(z)) at s = 0.2:
+
+                          Original: d/ds [log(1−s)] = −1/(1−s) = −1/0.8 = −1.25
+
+                          Non-saturating: d/ds [−log s] = −1/s = −1/0.2 = −5.00
+
+  ● The non-saturating gradient (5.00) is 4× larger in magnitude exactly when G is performing badly —
+    it gives a much stronger learning signal precisely when G needs it most.
+  ● This is why in practice G is trained to maximise log D(G(z)) (equivalently minimise −log D(G(z)))
+    instead of minimising log(1−D(G(z))).
+
+
+                                      Page 12 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                           Unit: Deep Unsupervised Learning
+
+(b) Mode Collapse
+  ● G discovers a few outputs that reliably fool D, and collapses to producing only those — losing the
+    diversity of p_data.
+  ● Symptom: generated samples look realistic individually but are highly repetitive.
+  ● Remedies: mini-batch discrimination, unrolled GANs, Wasserstein GAN (WGAN) with gradient
+    penalty, feature matching.
+
+(c) Training Instability
+  ● Because it is a minimax game (not a single loss being minimised), training can oscillate rather than
+    converge.
+  ● Remedies: careful learning-rate balance between G and D, spectral normalisation, WGAN loss (uses
+    Wasserstein/Earth-Mover distance, which gives smoother gradients than the original JS-
+    divergence-based loss).
+
+4.5 Notable GAN Variants (brief overview)
+  ● DCGAN: uses convolutional layers for stable image generation.
+  ● Conditional GAN (cGAN): both G and D are additionally conditioned on a class label y.
+  ● CycleGAN: unpaired image-to-image translation using a cycle-consistency loss.
+  ● WGAN: replaces the JS-divergence objective with the Wasserstein distance for more stable
+    gradients.
+
+4.6 Applications
+  ● Photorealistic image synthesis, super-resolution, image-to-image translation.
+  ● Data augmentation for downstream supervised tasks.
+  ● Deepfake / style-transfer / art-generation systems.
+
+
+
+
+                                    Page 13 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                            Unit: Deep Unsupervised Learning
+
+
+5. Maximum Entropy Distributions
+
+5.1 Entropy — A Recap
+  ● Entropy measures the uncertainty / unpredictability of a random variable X with distribution p.
+  ● Discrete case:
+
+                                          H(p) = −Σx p(x) log p(x)
+
+  ● High entropy = very unpredictable (close to uniform); low entropy = predictable (probability mass
+    concentrated on few outcomes).
+  ● Base of the log sets the unit: base-2 → bits, base-e → nats.
+
+5.2 The Maximum Entropy Principle
+  ● Stated by E.T. Jaynes (1957): given only partial information about a distribution (some constraints,
+    e.g. its mean), choose the distribution that has maximum entropy while satisfying those constraints.
+  ● Why? The max-entropy distribution is the “most honest” / least biased choice — it assumes
+    nothing beyond what is actually known. Any other distribution satisfying the same constraints
+    implicitly encodes extra, unjustified assumptions.
+  ● This turns distribution selection into a constrained optimisation problem, solved using Lagrange
+    multipliers.
+
+5.3 Derivation 1 — No Constraints ⇒ Uniform Distribution
+For a discrete variable with n outcomes, maximise H(p) subject only to normalisation Σ pᵢ = 1.
+
+Step 1 — Form the Lagrangian:
+
+                                         ℒ = −Σi pi ln pi + λ(Σi pi − 1)
+
+Step 2 — Differentiate w.r.t. each pᵢ and set to 0:
+
+                              ∂ℒ/∂pi = −ln pi − 1 + λ = 0 ⇒ ln pi = λ − 1
+
+Step 3 — Since the right side has no i in it, every pᵢ must be the SAME constant c:
+
+                                         pi = eλ−1 = c (same for all i)
+
+Step 4 — Apply normalisation to solve for c:
+
+
+
+               n·c = 1 ⇒ c = 1/n     ⇒      pi = 1/n for every i (the UNIFORM distribution)
+
+  ● Significance: with no information at all except that probabilities sum to 1, spreading probability
+    equally is the least-biased choice — confirms intuition.
+
+5.4 Derivation 2 — Mean & Variance Known ⇒ Gaussian Distribution
+
+
+
+                                     Page 14 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                Unit: Deep Unsupervised Learning
+
+For a continuous variable, maximise H[p] = −∫ p(x) ln p(x) dx subject to three constraints: normalisation, a
+fixed mean μ, and a fixed variance σ².
+
+Step 1 — Lagrangian with one multiplier per constraint:
+
+                        ℒ = −∫ p ln p dx + λ0(∫p dx−1) + λ1(∫xp dx−μ) + λ2(∫(x−μ)2p dx−σ2)
+
+Step 2 — Take the functional derivative w.r.t. p(x) and set to 0:
+
+                                       −ln p(x) − 1 + λ0 + λ1x + λ2(x−μ)2 = 0
+
+Step 3 — Solve for p(x) — note this is already an exponential-family form:
+
+                                        p(x) = exp( λ0−1 + λ1x + λ2(x−μ)2 )
+
+Step 4 — Fixing λ₁ = 0 (required by the mean constraint being centred at μ) and identifying λ₂ =
+−1/(2σ²) from the variance constraint, then fixing the remaining constant from normalisation, gives:
+
+
+
+      p(x) = (1) / (√(2πσ2)) exp( −(x−μ)2 / 2σ2 )         —      the Normal / Gaussian distribution N(μ,σ²)
+
+  ● Significance: this is exactly why the Gaussian appears everywhere — it is provably the least-
+    assumption distribution whenever we only know (or only want to assume) the mean and variance
+    of a variable. This is the formal justification behind e.g. using Gaussian priors/noise models
+    throughout deep learning (including the VAE prior p(z)=N(0,I) in Section 3).
+
+
+✎ Worked Example 5.1 — Entropy of a Discrete Distribution
+Compare the entropy of p = [0.5, 0.3, 0.2] with the entropy of the uniform distribution over the same 3
+outcomes (log base 2, i.e. bits).
+
+  ● Step 1 — Compute each −pᵢ log₂ pᵢ term:
+
+                −(0.5)log2(0.5) = 0.5000, −(0.3)log2(0.3) = 0.5211, −(0.2)log2(0.2) = 0.4644
+
+  ● Step 2 — Sum for H(p):
+
+                                H(p) = 0.5000 + 0.5211 + 0.4644 = 1.4855 bits
+
+  ● Step 3 — Entropy of the uniform distribution over 3 outcomes, for comparison:
+
+                                       H(uniform) = log2(3) = 1.5850 bits
+
+
+
+  ℹ Interpretation: H(p) = 1.4855 < H(uniform) = 1.5850. This numerically confirms Derivation 1: among
+  all distributions over 3 outcomes, the uniform distribution has the strictly highest entropy — any
+  deviation from uniform (like favouring 0.5 for one outcome) reduces entropy.
+
+
+
+5.5 Relevance to Deep Learning
+
+
+
+                                         Page 15 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                           Unit: Deep Unsupervised Learning
+
+  ● Softmax: the softmax output of a classifier is precisely the maximum-entropy distribution over class
+    labels, subject to matching the expected value of the network's logits — softmax is not an arbitrary
+    choice, it is the least-biased one given those constraints.
+  ● Boltzmann / Gibbs distribution: the form p(v,h) ∝ exp(−E(v,h)) used by every model in the rest of
+    this unit (RBM, DBN, DBM, ConvBM) is exactly the maximum-entropy distribution subject to a
+    constraint on the expected energy ⟨E⟩ — this is the theoretical bridge from this section into
+    Sections 6–8.
+  ● Regularisers such as entropy bonuses (e.g. in reinforcement learning policies) directly use H(p) to
+    keep a learned distribution from collapsing prematurely.
+
+
+
+
+                                    Page 16 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                Unit: Deep Unsupervised Learning
+
+
+6. Restricted Boltzmann Machines (RBM) and Deep Belief Networks (DBN)
+
+6.1 RBM Structure
+  ● An RBM is an energy-based, undirected, probabilistic model with two layers:
+        ◦ Visible layer v — the observed data (e.g. pixel values).
+        ◦ Hidden layer h — latent feature detectors.
+  ● “Restricted” means connections exist only between the two layers (bipartite) — no visible-visible
+    or hidden-hidden connections. This restriction is exactly what will make inference tractable (Section
+    6.3).
+
+
+
+
+                          Fig. 6.1 — RBM: fully bipartite-connected, no intra-layer edges.
+
+
+6.2 Energy Function and Joint Probability
+Every configuration (v,h) is assigned an energy:
+
+                                   E(v,h) = −Σi aivi − Σj bjhj − Σi,j vihjWij
+
+where a, b are visible/hidden biases and W is the weight matrix. The probability of a configuration
+follows the Boltzmann (Gibbs) distribution — exactly the maximum-entropy form derived in Section 5.5:
+
+                          P(v,h) = (exp(−E(v,h))) / (Z),            Z = Σv,h exp(−E(v,h))
+
+  ● Significance: lower energy ⇒ higher probability. Training adjusts W, a, b so that configurations
+    resembling the training data get low energy (high probability) and everything else gets high energy.
+  ● Z (the partition function) sums over ALL possible (v,h) — exponentially many — so it is intractable
+    to compute directly. This motivates Contrastive Divergence (Section 6.5), which sidesteps needing
+    Z.
+
+6.3 Deriving the Conditional Probabilities
+                                       Page 17 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                 Unit: Deep Unsupervised Learning
+
+Because there are no intra-layer connections, we can show the hidden units are conditionally
+independent given v.
+
+Step 1 — Regroup the energy so every term involving hⱼ is collected together:
+
+                                         E(v,h) = −aᵀv − Σj hj(bj + Σi viWij)
+
+Step 2 — Substitute into P(v,h) ∝ exp(−E(v,h)); since the exponent is now a SUM over j, the
+exponential FACTORISES into a product over j:
+
+                                   P(v,h) ∝ exp(aᵀv) × Σ ∏j exp( hj(bj+ΣiviWij) )
+
+  ● This product-over-j form means, given v, every hⱼ is independent of every other hₖ — a direct
+    consequence of the “restricted” (bipartite) structure.
+Step 3 — Each factor is an unnormalised Bernoulli variable in hⱼ ∈ {0,1}; normalising it over hⱼ = 0 and 1
+gives the logistic sigmoid:
+
+
+
+                                           P(hj=1 | v) = σ( bj + Σi viWij )
+
+                         P(vi=1 | h) = σ( ai + Σj hjWij )      (by the symmetric argument)
+
+  ● Significance: this gives simple, exact, closed-form sampling in both directions (v→h and h→v) —
+    exactly what is needed for Gibbs sampling in Contrastive Divergence below.
+
+
+✎ Worked Example 6.1 — Energy and Conditional Probability of an RBM
+A tiny RBM has v = [1, 1], h = [1], weight W = [0.4, 0.6]ᵀ, visible bias a = [0.1, 0.2], hidden bias b = 0.3.
+Find E(v,h) and P(h=1|v).
+
+  ● Step 1 — Visible-bias term:
+
+                                          −aᵀv = −(0.1×1 + 0.2×1) = −0.3
+
+  ● Step 2 — Hidden-bias term:
+
+                                               −bᵀh = −(0.3×1) = −0.3
+
+  ● Step 3 — Interaction term:
+
+                                      −vᵀWh = −(1×0.4×1 + 1×0.6×1) = −1.0
+
+  ● Step 4 — Total energy:
+
+                                          E(v,h) = −0.3 − 0.3 − 1.0 = −1.6
+
+  ● Step 5 — Conditional probability P(h=1|v), using the sigmoid formula just derived:
+
+                        P(h=1|v) = σ(0.3 + 1×0.4 + 1×0.6) = σ(1.3) = 1/(1+e−1.3) = 0.7858
+
+
+
+
+                                          Page 18 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                    Unit: Deep Unsupervised Learning
+
+
+
+
+  ℹ Interpretation: the low (negative) energy −1.6 corresponds to a relatively probable/compatible
+  configuration. P(h=1|v)=0.786 says that given this visible pattern, the hidden unit is quite likely to
+  activate — it has “recognised” something in v.
+
+
+
+6.4 Training RBMs: Contrastive Divergence (CD-k)
+The exact gradient of the log-likelihood has a clean form but an intractable piece:
+
+                                    ∂ log P(v) / ∂Wij = ⟨vihj⟩data − ⟨vihj⟩model
+
+  ● Positive phase ⟨vᵢhⱼ⟩_data: easy — clamp v to a training example and compute P(h|v) directly
+    (Section 6.3).
+  ● Negative phase ⟨vᵢhⱼ⟩_model: needs samples from the model's own equilibrium distribution, which
+    exactly needs Z — intractable.
+  ● Contrastive Divergence (Hinton, 2002): approximate the negative phase using only k steps of block
+    Gibbs sampling, starting the chain from the training example itself (instead of running to
+    equilibrium). CD-1 (k=1) is used in practice and works remarkably well.
+
+CD-1 Algorithm
+  1. Start with a training vector v⁰.
+  2. Compute P(h⁰|v⁰) using the sigmoid formula; sample/obtain h⁰ (positive phase).
+  3. Compute P(v¹|h⁰); this “reconstruction” v¹ is the model's guess at regenerating v⁰.
+  4. Compute P(h¹|v¹) (negative phase).
+  5. Update weights and biases:
+
+                        ΔWij = η( vi0hj0 − vi1hj1 ),    Δai = η(vi0−vi1),       Δbj = η(hj0−hj1)
+
+
+✎ Worked Example 6.2 — One Step of CD-1 (single visible / single hidden unit, for clarity)
+v⁰ = 1, weight W = 0.5, biases = 0, learning rate η = 0.1. Perform one CD-1 update of W.
+
+  ● Step 1 — Positive phase: probability hidden unit turns on, given the data:
+
+                                h⁰ = P(h=1|v⁰) = σ(1×0.5) = σ(0.5) = 0.6225
+
+  ● Step 2 — Reconstruction: probability visible unit turns back on, given h⁰ (the model “imagining” the
+    data back):
+
+                           v¹ = P(v=1|h⁰) = σ(0.6225×0.5) = σ(0.3113) = 0.5773
+
+  ● Step 3 — Negative phase: probability hidden unit turns on, given the reconstruction:
+
+                           h¹ = P(h=1|v¹) = σ(0.5773×0.5) = σ(0.2887) = 0.5717
+
+  ● Step 4 — CD-1 weight update (positive-phase correlation minus negative-phase correlation):
+
+        ΔW = η(v⁰h⁰ − v¹h¹) = 0.1×(1×0.6225 − 0.5773×0.5717) = 0.1×(0.6225−0.3300) = 0.02925
+
+
+                                        Page 19 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                            Unit: Deep Unsupervised Learning
+
+                                     Wnew = 0.5 + 0.02925 = 0.52925
+
+
+
+  ℹ Interpretation: the positive-phase correlation (0.6225) exceeds the negative/reconstruction-phase
+  correlation (0.3300), so W is increased — the model strengthens this v–h connection to make the
+  real data configuration more probable (lower energy) relative to what it currently
+  “fantasises”/reconstructs.
+
+
+
+6.5 Deep Belief Networks (DBN): Stacking RBMs
+  ● A DBN stacks several RBMs: v → h¹ → h² → h³ …
+  ● Only the top two layers remain an undirected RBM; all lower connections become directed,
+    pointing downward (a “sigmoid belief network”) — see the left panel of Fig. 6.2 (Section 7 shows
+    the DBM comparison on the right).
+  ● This mixed directed/undirected structure is what distinguishes a DBN from a Deep Boltzmann
+    Machine (Section 7, which is fully undirected).
+
+Greedy Layer-wise Pretraining
+  6. Train RBM₁ on the raw data v using CD, learning h¹.
+  7. Freeze RBM₁. Treat P(h¹|v) (or samples from it) as “data” and train RBM₂ on top of it, learning h².
+  8. Repeat, adding one RBM/layer at a time — each new layer is trained on the activations of the
+     previous, already-fixed layer.
+  9. Optionally fine-tune the whole stack afterward (e.g. wake-sleep algorithm, or backpropagation if a
+     classifier layer is attached on top).
+  10. Because each layer is trained one at a time on a shallow (1-layer) problem, this avoids the
+      vanishing-gradient difficulty of training a deep directed network from scratch, and was historically
+      the technique that first made training deep networks practical.
+
+6.6 Applications
+  ● Unsupervised pretraining / weight initialisation for deep networks (historically important, pre-
+    ReLU/pre-BatchNorm era).
+  ● Dimensionality reduction, collaborative filtering (RBMs were used in the Netflix Prize).
+  ● Feature learning followed by a supervised classifier on top of the learned h.
+
+
+
+
+                                     Page 20 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                     Unit: Deep Unsupervised Learning
+
+
+7. Deep Boltzmann Machines (DBM)
+
+7.1 How a DBM Differs from a DBN
+  ● A DBM also stacks multiple hidden layers: v ↔ h¹ ↔ h² ↔ …, but every connection remains
+    undirected — unlike a DBN, where only the top pair of layers is undirected.
+  ● This makes a DBM a genuine, fully-fledged Boltzmann distribution across all layers (a single global
+    energy function), whereas a DBN is a hybrid directed/undirected model.
+  ● Consequence: in a DBM, information can flow both bottom-up and top-down during inference — a
+    hidden unit's belief depends on evidence from the layer below AND the layer above
+    simultaneously. This lets top layers refine/disambiguate what lower layers think they saw.
+
+
+
+
+                   Fig. 7.1 — DBN (directed lower layers) vs. DBM (all layers undirected) — side by side.
+
+
+7.2 Energy Function of a DBM
+For a DBM with one visible layer and two hidden layers (v, h¹, h²), the energy simply adds one more
+interaction term per extra layer:
+
+
+
+                                E(v,h1,h2) = −aᵀv − b1ᵀh1 − b2ᵀh2 − vᵀW1h1 − h1ᵀW2h2
+
+  ● a, b¹, b²: bias terms for v, h¹, h² respectively.
+  ● W¹: weights between v and h¹ (exactly like a single RBM).
+  ● W²: weights between h¹ and h² (a second RBM stacked on the first, but here kept undirected and
+    trained/used jointly, not just stacked greedily).
+
+
+
+
+                                           Page 21 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                            Unit: Deep Unsupervised Learning
+
+  ● Notice the pattern: every adjacent pair of layers contributes exactly one −(layer)ᵀW(layer)
+    interaction term, plus one bias term per layer — this generalises directly to any number of hidden
+    layers.
+
+
+✎ Worked Example 7.1 — Extending an RBM Energy to a DBM by Adding a Layer
+Recall Worked Example 6.1: an RBM with v=[1,1], h¹=[1], W¹=[0.4,0.6]ᵀ, a=[0.1,0.2], b¹=0.3 had energy E =
+−1.6. Now add a second hidden unit h² = 1 on top, with weight W² = 0.5 (connecting h¹ to h²) and bias b²
+= 0.1. Find the new DBM energy.
+
+  ● Step 1 — The v–h¹ part of the energy is unchanged from Example 6.1:
+
+                               −aᵀv − b1ᵀh1 − vᵀW1h1 = −1.6 (from before)
+
+  ● Step 2 — New h¹–h² interaction term:
+
+                                       −h1ᵀW2h2 = −(1×0.5×1) = −0.5
+
+  ● Step 3 — New h² bias term:
+
+                                         −b2ᵀh2 = −(0.1×1) = −0.1
+
+  ● Step 4 — Total DBM energy = old RBM energy + new terms:
+
+                                 E(v,h1,h2) = −1.6 + (−0.5) + (−0.1) = −2.2
+
+
+
+  ℹ Interpretation: adding a compatible second layer (positive W², h² = 1 matching a high P(h¹=1|·))
+  further LOWERS the energy — i.e. increases the probability of this joint configuration. This is exactly
+  how deeper layers refine/reinforce the model's belief about the input.
+
+
+
+7.3 Why Exact Inference is Intractable — Mean-Field Approximation
+  ● In a single RBM, P(h|v) factorises exactly (Section 6.3) because h has no other neighbours.
+  ● In a DBM, h¹ is now sandwiched between v and h² — P(h¹|v,h²) is easy, but the joint posterior
+    P(h¹,h²|v) needed for learning no longer factorises, because h¹ and h² become statistically
+    dependent once v is observed (a classic “explaining-away” effect). Exact inference would need
+    summing over exponentially many hidden configurations.
+  ● Solution: mean-field variational inference — approximate the true posterior with a simple
+    FACTORISED distribution Q(h¹,h²) = ∏ᵢ q(h¹ᵢ) · ∏ₖ q(h²ₖ), governed by parameters μ¹ᵢ = q(h¹ᵢ=1) and
+    μ²ₖ = q(h²ₖ=1).
+  ● These are updated by iterating fixed-point equations until convergence, each unit's estimate
+    combining evidence from both neighbouring layers:
+
+                                       μ1j ← σ( Σi viW1ij + Σk μ2kW2jk )
+
+  ● Compare this to the RBM update (Section 6.3): it is the same sigmoid rule, but now with an extra
+    term from the layer above — this is precisely the mathematical signature of “top-down feedback”
+    that a DBN (with its directed lower layers) does not have.
+
+                                     Page 22 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                 Unit: Deep Unsupervised Learning
+
+7.4 DBN vs. DBM — Summary Comparison
+
+         Aspect              Deep Belief Network (DBN)                    Deep Boltzmann Machine (DBM)
+
+                        Top 2 layers undirected; lower layers
+ Connection type                                                      All layers undirected
+                        directed (top-down)
+
+                        Fast, single top-down pass                    Iterative mean-field (both directions),
+ Inference
+                        (approximate)                                 slower
+
+                                                                      Greedy pretraining, then joint fine-
+ Training               Greedy layer-wise CD, layer-by-layer
+                                                                      tuning of all layers together
+
+                        One-directional (generative, top-             Bidirectional — top layers can revise
+ Information flow
+                        down)                                         lower-layer beliefs
+
+                        More sensitive to ambiguous/noisy             More robust — top-down feedback
+ Robustness
+                        input                                         helps disambiguate input
+
+
+7.5 Applications
+  ● Joint modelling of multi-modal data (e.g. images + text tags) where top-down context genuinely
+    helps interpret ambiguous input.
+  ● Robust feature extraction under noise/occlusion.
+  ● Historically important as a stepping stone toward modern deep generative models (VAE, GAN,
+    diffusion models).
+
+
+
+
+                                      Page 23 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                    Unit: Deep Unsupervised Learning
+
+
+8. Convolutional Boltzmann Machine (Convolutional DBN)
+
+8.1 Motivation
+  ● A plain RBM/DBM connects every visible unit to every hidden unit — for a realistic image this is
+    enormous (Section 8.5) and ignores the 2-D spatial structure of images entirely.
+  ● Convolutional Boltzmann Machines (also called Convolutional Deep Belief Networks, Lee et al.)
+    apply the same weight-sharing / local-receptive-field idea used in CNNs, but inside the energy-
+    based, probabilistic RBM/DBN framework.
+  ● Benefits, exactly as in CNNs: far fewer parameters, translation invariance (a learned feature
+    detector fires wherever the pattern appears in the image), and scalability to large images.
+
+8.2 Architecture
+
+
+
+
+ Fig. 8.1 — Convolutional BM: a shared filter K slides over the input to produce a detection (feature-map) layer, which is
+                                               then probabilistically pooled.
+
+  ● Detection layer: one feature map per filter; every unit in a feature map shares the same weights K
+    and bias — this is the weight-sharing step.
+  ● Pooling layer: shrinks each feature map (e.g. 2×2 blocks → 1 unit) using probabilistic max-pooling
+    (Section 8.4), which keeps the whole model a valid, properly normalisable energy-based
+    (Boltzmann) model — unlike a deterministic CNN max-pool.
+
+8.3 Weight Sharing — the Convolution Operation
+Each detection-layer unit's input is a convolution of the shared filter K with a local patch of v:
+
+                                              (K * v)ij = Σm,n Kmn v(i+m)(j+n)
+
+
+
+                                          Page 24 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                              Unit: Deep Unsupervised Learning
+
+The pre-activation of detection unit (i,j) in feature map k then uses this convolution plus one shared bias
+bₖ (not one bias per position):
+
+                                      P(hkij = 1 | v) = σ( (Kk * v)ij + bk )
+
+  ● Significance: because Kᵏ and bₖ do not depend on (i,j), the SAME small set of parameters is reused
+    at every spatial location — this is what gives translation invariance and the huge parameter
+    reduction (quantified in Section 8.5).
+
+
+✎ Worked Example 8.1 — Convolution for the Detection Layer
+Input image (3×3): v = [[1,0,1],[1,1,0],[0,1,1]]. Shared filter (2×2): K = [[1,0],[0,1]]. Stride 1, no padding.
+Find the detection-layer (feature-map) values, then apply a shared bias b = −1.5 to get activation
+probabilities.
+
+  ● Step 1 — Output size: with a 3×3 input and 2×2 filter, stride 1, valid convolution gives a
+    (3−2+1)×(3−2+1) = 2×2 feature map.
+  ● Step 2 — Slide K over v; since K picks out the top-left and bottom-right of each 2×2 patch (K =
+    identity-like), each output = v(i,j) + v(i+1,j+1):
+
+                                     out(0,0) = v(0,0)+v(1,1) = 1+1 = 2
+
+                                     out(0,1) = v(0,1)+v(1,2) = 0+0 = 0
+
+                                     out(1,0) = v(1,0)+v(2,1) = 1+1 = 2
+
+                                     out(1,1) = v(1,1)+v(2,2) = 1+1 = 2
+
+  ● Step 3 — Feature map (before activation):
+
+                                             (K*v) = [[2, 0], [2, 2]]
+
+  ● Step 4 — Add the ONE shared bias b = −1.5 to every position, then apply sigmoid to get firing
+    probabilities:
+
+                P(h00=1|v)=σ(2−1.5)=σ(0.5)=0.6225,          P(h01=1|v)=σ(0−1.5)=σ(−1.5)=0.1824
+
+                        P(h10=1|v)=σ(2−1.5)=0.6225,          P(h11=1|v)=σ(2−1.5)=0.6225
+
+
+
+  ℹ Interpretation: positions (0,0), (1,0), (1,1) all produced the same raw score (2) because the SAME
+  filter detected the SAME local diagonal pattern [1,·;·,1] at each — this is translation invariance in
+  action. Position (0,1) had a mismatched patch and scored 0, giving low firing probability (0.18).
+
+
+
+8.4 Probabilistic Max-Pooling
+  ● Ordinary CNN max-pooling just takes max(·) deterministically — it has no probabilistic
+    interpretation and cannot be plugged into an energy function.
+  ● Probabilistic max-pooling instead groups a small block (say 2×2) of detection units {h₁, h₂, h₃, h₄}
+    with one pooling unit p, and defines a joint (softmax-style) distribution over the 5 possible states —
+
+
+                                       Page 25 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                 Unit: Deep Unsupervised Learning
+
+      exactly one hⱢ=1 and p=1, OR all hⱢ=0 and p=0 — so it stays a valid, normalisable part of the
+      Boltzmann energy function:
+
+                    P(p=1 | v) = 1 − P(all hi = 0 | v)      (p fires if ANY unit in its block fires)
+
+  ● This keeps the whole architecture a proper probabilistic (Boltzmann) model with a well-defined
+    energy function, while still achieving the same practical effect as CNN pooling: a smaller, spatially-
+    invariant summary of each region.
+
+8.5 Parameter Efficiency — Weight Sharing vs. Fully-Connected
+
+✎ Worked Example 8.2 — Parameter Count: Fully-Connected RBM vs. Convolutional RBM
+Compare a fully-connected RBM with 100 hidden units on a 28×28 image, against a convolutional RBM
+with 10 filters of size 5×5.
+
+  ● Step 1 — Fully-connected RBM: every one of the 784 visible units connects to every one of the 100
+    hidden units:
+
+                                    784 × 100 = 78,400 weight parameters
+
+  ● Step 2 — Convolutional RBM: 10 filters, each only 5×5, shared across all positions:
+
+                          10 × (5×5) = 250 weight parameters (+10 shared biases)
+
+  ● Step 3 — Reduction factor:
+
+                                    78,400 / 250 ≈ 313.6× fewer weights
+
+
+
+  ℹ Interpretation: over 300× fewer parameters for a comparable (indeed typically much richer, since
+  convolution can be applied at every position) feature-detection capacity — this is the core practical
+  reason convolutional variants scale to real images while fully-connected RBM/DBM/DBN do not.
+
+
+
+8.6 Applications
+  ● Hierarchical unsupervised feature learning directly from images (edges → motifs → object parts,
+    layer by layer, exactly like a supervised CNN but learned without labels).
+  ● Pretraining convolutional feature extractors before supervised fine-tuning.
+  ● Generative modelling / in-painting of image data at larger resolution than fully-connected
+    RBM/DBM/DBN can practically handle.
+
+
+
+
+                                         Page 26 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                     Unit: Deep Unsupervised Learning
+
+
+9. Summary / Quick Revision
+
+9.1 Comparison of All Models in This Unit
+
+                        Directed /
+     Model                                         Training                   Latent Variable            Typical Use
+                        Undirected
+
+                   Deterministic         Backprop, minimise                                        Compression,
+ Autoencoder                                                               Deterministic code z
+                   (neither)             ‖x−x̂‖²                                                   denoising, pretraining
+
+                   Directed,             Backprop on ELBO                  Continuous z, prior     Generation with
+ VAE
+                   probabilistic         (reparameterization trick)        N(0,I)                  smooth latent space
+
+                   Implicit              Minimax game,                     Noise z (no             High-fidelity sample
+ GAN
+                   (adversarial)         alternating gradient steps        structure imposed)      generation
+
+                   Undirected,           Contrastive Divergence                                    Feature learning,
+ RBM                                                                       Binary stochastic h
+                   energy-based          (CD-k)                                                    pretraining
+
+                   Hybrid: top layer
+                                         Greedy layer-wise CD,                                     Pretraining deep nets,
+ DBN               undirected, rest                                        Stacked h¹, h², …
+                                         then fine-tune                                            classification
+                   directed
+
+                                         Greedy pretrain + joint           Stacked h¹, h², …       Robust joint / multi-
+ DBM               Fully undirected
+                                         mean-field fine-tune              (bidirectional)         modal modelling
+
+                   Undirected,           CD + probabilistic max-                                   Hierarchical image
+ ConvBM                                                                    Spatial feature maps
+                   weight-shared         pooling                                                   feature learning
+
+
+
+
+9.2 Quick Formula Sheet
+
+  Autoencoder
+
+                                       z=σ(Wx+b), x̂=σ(W′z+b′), L=(1/n)Σ(xᵢ−x̂ᵢ)2
+
+
+  VAE
+
+                          z=μ+σ⊙ε, L=−E[log p(x|z)]+KL(q(z|x)‖p(z)), KL=½(μ2+σ2−lnσ2−1)
+
+
+  GAN
+
+                            minG maxD E[log D(x)] + E[log(1−D(G(z)))], D*(x)=pdata/(pdata+pg)
+
+
+  Maximum Entropy
+
+                    H(p)=−Σp log p; no constraint→uniform; mean+variance constraint→Gaussian
+
+
+  RBM / DBN / DBM
+
+                          E(v,h)=−aᵀv−bᵀh−vᵀWh, P(hj=1|v)=σ(bj+ΣvᵢWij), ΔW=η(⟨vh⟩data−⟨vh⟩recon)
+
+
+
+
+                                          Page 27 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                           Unit: Deep Unsupervised Learning
+
+
+  Convolutional BM
+
+                        P(hkij=1|v)=σ((Kk*v)ij+bk) — same K,b shared at every (i,j)
+
+
+
+
+                                   Page 28 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                               Unit: Deep Unsupervised Learning
+
+
+10. Practice Questions
+
+
+  50 questions in total — Section A: 15 Multiple Choice Questions (each with the correct option
+  marked and a brief explanation), followed by Section B: 35 short-answer, long-answer / derivation,
+  and numerical questions, each with a fully worked, step-by-step solution. Questions are grouped by
+  topic, five per topic in Section B, in the same order as the notes.
+
+
+
+Section A — Multiple Choice Questions (15)
+
+Q1. What is the primary purpose of the bottleneck (latent) layer in an autoencoder?
+      (A) To increase the model's raw capacity
+      (B) To force the network to learn a compressed, useful representation of the input
+      (C) To add regularisation noise to the gradients
+      (D) To speed up training regardless of representation quality
+      ✓ Answer: (B) The bottleneck is narrower than the input, so the network cannot simply copy — it
+      must retain only the most important information to reconstruct x, which is exactly what makes the
+      learned code z useful (Section 2.1).
+
+
+Q2. In an undercomplete autoencoder, the dimensionality of the hidden (latent) layer is:
+      (A) Greater than the input dimension
+      (B) Equal to the input dimension
+      (C) Less than the input dimension
+      (D) Always exactly 1, regardless of input size
+      ✓ Answer: (C) “Undercomplete” means the code is lower-dimensional than the input (Section 2.4)
+      — this is what forces compression.
+
+
+Q3. A denoising autoencoder is trained so that it learns to:
+      (A) Add noise to a clean output
+      (B) Reconstruct the clean original input from a corrupted/noisy version of it
+      (C) Maximise its own reconstruction error
+      (D) Operate without any decoder network
+      ✓ Answer: (B) The input is corrupted (x̃) before encoding, but the training target is still the original
+      clean x — this forces genuinely robust features rather than trivial pixel-copying (Section 2.4).
+
+
+Q4. In a Variational Autoencoder, the prior distribution p(z) over the latent variable is typically chosen
+to be:
+      (A) Uniform(0, 1)
+      (B) A standard normal distribution N(0, I)
+
+                                        Page 29 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                              Unit: Deep Unsupervised Learning
+
+      (C) A Bernoulli distribution
+      (D) Left completely unspecified / learned with no constraint
+      ✓ Answer: (B) N(0,I) is simple, easy to sample from, and the KL term in the ELBO pulls qφ(z|x)
+      toward it, which is what fills the latent space smoothly for generation (Section 3.1–3.2).
+
+
+Q5. The reparameterization trick in a VAE is used primarily to:
+      (A) Reduce the total number of network parameters
+      (B) Make the random sampling step differentiable so gradients can flow back through it
+      (C) Remove the need for a decoder network entirely
+      (D) Convert the continuous latent variable into a discrete one
+      ✓ Answer: (B) Writing z = μ + σ⊙ε moves the randomness into an external ε, so z becomes a
+      deterministic, differentiable function of μ and σ (Section 3.4).
+
+
+Q6. The ELBO (Evidence Lower Bound) used to train a VAE is made up of which two terms?
+      (A) Cross-entropy loss and L2 weight regularisation
+      (B) A reconstruction term and a KL-divergence (regularisation) term
+      (C) Generator loss and discriminator loss
+      (D) An energy term and the log partition function
+      ✓ Answer: (B) ELBO = E_q[log pθ(x|z)] − KL(qφ(z|x)‖p(z)) — reconstruction quality traded off
+      against closeness to the prior (Section 3.5).
+
+
+Q7. In a GAN, the Generator's training objective is to:
+      (A) Correctly classify samples as real or fake
+      (B) Produce samples that the Discriminator classifies as real
+      (C) Directly minimise a pixel-wise reconstruction loss against real data
+      (D) Maximise the KL divergence between p_g and p_data
+      ✓ Answer: (B) G never sees real data directly — it only receives gradient signal through D, pushing
+      it to make D(G(z)) large (Section 4.1, 4.3).
+
+
+Q8. At the theoretical Nash equilibrium of GAN training (when the generator distribution p_g equals
+p_data), the optimal discriminator output D*(x) equals:
+      (A) 0
+      (B) 1
+      (C) 0.5
+      (D) It oscillates indefinitely and never settles to a fixed value
+      ✓ Answer: (C) D*(x) = p_data(x) / (p_data(x)+p_g(x)); when p_g = p_data this ratio is 1/2
+      everywhere — the best D can do is a coin flip (Section 4.3).
+
+
+Q9. “Mode collapse” in GAN training refers to the situation where:
+      (A) The discriminator's loss drops to exactly zero
+                                       Page 30 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                             Unit: Deep Unsupervised Learning
+
+      (B) The generator produces only a limited variety of outputs, failing to capture the full diversity of
+      p_data
+      (C) The generator's weights collapse to all zeros
+      (D) Training converges in a single gradient step
+      ✓ Answer: (B) G finds a small set of outputs that reliably fool D and keeps producing (near-)only
+      those, sacrificing diversity (Section 4.4b).
+
+
+Q10. According to the Maximum Entropy Principle, given only some known constraints on a distribution,
+one should choose the distribution that:
+      (A) Has the lowest entropy consistent with the constraints
+      (B) Has the highest entropy consistent with the constraints
+      (C) Is always the Gaussian distribution, regardless of the constraints
+      (D) Minimises the log-likelihood of observed data
+      ✓ Answer: (B) Maximum entropy = least additional, unjustified assumptions beyond what the
+      constraints actually say (Section 5.2, Jaynes).
+
+
+Q11. If the only known constraints on a continuous random variable are its mean and variance, the
+maximum-entropy distribution consistent with them is:
+      (A) Uniform
+      (B) Exponential
+      (C) Gaussian (Normal)
+      (D) Bernoulli
+      ✓ Answer: (C) Solving the constrained optimisation with Lagrange multipliers for mean+variance
+      constraints yields exactly the Gaussian density (Section 5.4).
+
+
+Q12. In a Restricted Boltzmann Machine (RBM), which connections are disallowed by the “restricted”
+structure?
+      (A) Visible-to-hidden connections
+      (B) Both visible-visible AND hidden-hidden (intra-layer) connections
+      (C) Only hidden-to-hidden connections, visible-visible is allowed
+      (D) All connections of every kind are disallowed
+      ✓ Answer: (B) RBM is strictly bipartite — no v-v or h-h edges — which is exactly what makes
+      P(h|v) and P(v|h) factorise into simple, independent sigmoids (Section 6.1, 6.3).
+
+
+Q13. Deep Belief Networks (DBNs) are classically trained using which strategy?
+      (A) End-to-end backpropagation from random initialisation, with no pretraining
+      (B) Greedy layer-wise pretraining of stacked RBMs, one layer at a time
+      (C) A single-shot closed-form least-squares solution
+      (D) Pure reinforcement learning with a reward signal
+
+
+
+                                      Page 31 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                             Unit: Deep Unsupervised Learning
+
+      ✓ Answer: (B) Each RBM is trained via CD on the activations of the previous (already-fixed) layer,
+      then optionally the whole stack is fine-tuned (Section 6.5).
+
+
+Q14. The key structural difference between a Deep Boltzmann Machine (DBM) and a Deep Belief
+Network (DBN) is that in a DBM:
+      (A) There are no hidden layers at all
+      (B) All layer-to-layer connections are undirected, unlike the DBN's mix of directed and undirected
+      connections
+      (C) There is no visible layer
+      (D) Only exactly one hidden unit is permitted in total
+      ✓ Answer: (B) DBN keeps only the top two layers as an undirected RBM (lower layers directed);
+      DBM keeps every pair of layers undirected, enabling two-way (bottom-up AND top-down)
+      inference (Section 7.1, 7.4).
+
+
+Q15. In a Convolutional Boltzmann Machine, sharing the same filter weights across every spatial
+location primarily provides:
+      (A) A larger number of parameters for higher model capacity
+      (B) Translation invariance and a large reduction in the number of parameters
+      (C) Complete removal of the need for any bias term
+      (D) A guarantee that training converges in exactly one epoch
+      ✓ Answer: (B) The same small filter K (and one shared bias) is reused at every position — Worked
+      Example 8.2 shows a 300×+ parameter reduction versus a fully-connected RBM (Section 8.3, 8.5).
+
+
+
+
+                                      Page 32 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                Unit: Deep Unsupervised Learning
+
+
+11. Practice Questions — Section B (35 Questions)
+
+Short-answer, long-answer/derivation, and numerical questions, five per topic, with fully worked
+solutions.
+
+Autoencoders
+
+Q16. [Short Answer] Explain the basic architecture and working principle of an autoencoder, and state its
+two main components.
+Solution
+  ● An autoencoder is a feedforward neural network trained, with no labels, to reconstruct its own
+    input at its output, through a narrow bottleneck (Fig. 2.1).
+  ● Encoder f: compresses input x into a lower-dimensional latent code z = f(x).
+  ● Decoder g: reconstructs x̂ = g(z) from the code, attempting to match the original x.
+  ● Both are trained jointly by minimising a reconstruction loss such as MSE, L(x,x̂) = ‖x−x̂‖², via
+    backpropagation.
+
+
+Q17. [Short Answer] Differentiate between undercomplete, overcomplete, sparse, denoising, and
+contractive autoencoders.
+Solution
+
+            Type                                              Distinguishing Idea
+
+ Undercomplete               Latent dim < input dim; compression forced by the architecture itself
+
+                             Latent dim ≥ input dim; needs an extra constraint below, else learns a trivial
+ Overcomplete
+                             identity
+
+                             Overcomplete but penalised (KL-divergence) so only a few hidden units
+ Sparse
+                             activate at once
+
+ Denoising                   Trained to map a corrupted input x̃ back to the original clean x
+
+                             Penalises the Jacobian ‖∂h/∂x‖² so the code is insensitive to small input
+ Contractive
+                             changes
+
+
+Q18. [Numerical] An autoencoder has input x = [1, 0.5, 0.2, 0.8] (n=4), a 2-unit bottleneck, and sigmoid
+activations throughout. Encoder weights W = [[0.2,0.1,−0.1,0.3],[0.4,−0.2,0.2,0.1]], bias b=[0,0]. Decoder
+weights W′ = [[0.3,0.2],[0.1,0.4],[−0.2,0.3],[0.2,0.1]], bias b′=[0,0,0,0]. Find the reconstruction x̂ and the
+MSE loss.
+Solution
+  ● Step 1 — Encoder pre-activations (each hidden unit is a weighted sum of all 4 inputs):
+
+                   z1,pre = 0.2(1)+0.1(0.5)+(−0.1)(0.2)+0.3(0.8) = 0.20+0.05−0.02+0.24 = 0.47
+
+                   z2,pre = 0.4(1)+(−0.2)(0.5)+0.2(0.2)+0.1(0.8) = 0.40−0.10+0.04+0.08 = 0.42
+
+
+                                         Page 33 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                               Unit: Deep Unsupervised Learning
+
+  ● Step 2 — Apply sigmoid to get the latent code:
+
+                                   z = [σ(0.47), σ(0.42)] = [0.6154, 0.6035]
+
+  ● Step 3 — Decoder pre-activations (each output unit is a weighted sum of the 2 code values):
+
+              x̂1,pre=0.3(0.6154)+0.2(0.6035)=0.3053, x̂2,pre=0.1(0.6154)+0.4(0.6035)=0.3029
+
+              x̂3,pre=−0.2(0.6154)+0.3(0.6035)=0.0580, x̂4,pre=0.2(0.6154)+0.1(0.6035)=0.1834
+
+  ● Step 4 — Apply sigmoid to get the reconstruction:
+
+           x̂ = [σ(0.3053), σ(0.3029), σ(0.0580), σ(0.1834)] = [0.5757, 0.5752, 0.5145, 0.5458]
+
+  ● Step 5 — MSE loss (this is the number backpropagation will reduce):
+
+                    L = (1) / (4)[(1−0.5757)2+(0.5−0.5752)2+(0.2−0.5145)2+(0.8−0.5458)2]
+
+                  L = (1) / (4)[0.1800+0.0057+0.0989+0.0646] = (1) / (4)(0.3492) = 0.0873
+
+
+Q19. [Numerical] Continuing Q18, perform one gradient-descent update of the decoder weight W′₁₁
+(connecting z₁ to x̂₁), using learning rate η = 0.1.
+Solution
+  ● Step 1 — Gradient of loss w.r.t. x̂₁ (chain rule, start of backprop):
+
+                               ∂L/∂x̂1 = (2/4)(x̂1−x1) = 0.5(0.5757−1) = −0.2122
+
+  ● Step 2 — Sigmoid derivative at the output (local slope of the activation):
+
+                                ∂x̂1/∂z1,pre = x̂1(1−x̂1) = 0.5757(0.4243) = 0.2443
+
+  ● Step 3 — Derivative of the pre-activation w.r.t. the weight itself is just the input to that weight, z₁:
+
+                                           ∂z1,pre/∂W′11 = z1 = 0.6154
+
+  ● Step 4 — Multiply the chain together (chain rule):
+
+                               ∂L/∂W′11 = (−0.2122)(0.2443)(0.6154) = −0.0319
+
+  ● Step 5 — Gradient descent update (move opposite the gradient):
+
+                            W′11,new = 0.3 − 0.1×(−0.0319) = 0.3 + 0.00319 = 0.3032
+
+ℹ The weight increases slightly — since x̂₁ (0.5757) undershot the true x₁ (1), the gradient pushes W′₁₁ up
+so that x̂₁ moves closer to 1 next iteration.
+
+
+Q20. [Numerical] For a sparse autoencoder with target sparsity ρ = 0.1 and observed average activation ρ̂
+= 0.3, compute the KL-divergence sparsity penalty (natural log).
+Solution
+  ● Step 1 — First term:
+
+                        0.1 × ln(0.1/0.3) = 0.1 × ln(0.3333) = 0.1 × (−1.0986) = −0.1099
+
+  ● Step 2 — Second term:
+
+                                        Page 34 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                              Unit: Deep Unsupervised Learning
+
+                        0.9 × ln(0.9/0.7) = 0.9 × ln(1.2857) = 0.9 × 0.2513 = 0.2262
+
+  ● Step 3 — Sum:
+
+                              KL(0.1 ‖ 0.3) = −0.1099 + 0.2262 = 0.1163 nats
+
+ℹ A positive penalty, since ρ̂ (0.3) is well above the desired ρ (0.1) — training will push this hidden unit to
+fire less often.
+
+Variational Autoencoders (VAE)
+
+Q21. [Short Answer] Why are standard autoencoders unsuitable for generating new samples, and how
+does the VAE overcome this limitation?
+Solution
+  ● A standard AE's latent space has no imposed structure — codes for real data points can sit in
+    disconnected, arbitrarily-shaped regions with large empty gaps.
+  ● Decoding a randomly-picked point from those gaps usually produces unrealistic output, so the AE
+    cannot reliably generate new samples.
+  ● VAE explicitly regularises the encoder's output distribution qφ(z|x) to stay close to a known prior
+    p(z)=N(0,I) via the KL term in the ELBO.
+  ● This “fills in” the latent space smoothly and predictably, so any z sampled from N(0,I) decodes into
+    a plausible sample — enabling generation.
+
+
+Q22. [Long Answer / Derivation] Derive the Evidence Lower Bound (ELBO) for a VAE, starting from log p(x).
+Solution
+  ● Step 1 — Marginalise over the latent variable:
+
+                                           log p(x) = log ∫ p(x,z) dz
+
+  ● Step 2 — Multiply and divide by the approximate posterior qφ(z|x), turning the integral into an
+    expectation:
+
+                                      log p(x) = log Eq[ p(x,z)/qφ(z|x) ]
+
+  ● Step 3 — Apply Jensen's Inequality (log is concave, so log E[X] ≥ E[log X]):
+
+                               log p(x) ≥ Eq[ log p(x,z) − log qφ(z|x) ] ≡ ELBO
+
+  ● Step 4 — Factor p(x,z)=p(x|z)p(z) and split into two terms:
+
+                                 ELBO = Eq[log pθ(x|z)] − KL(qφ(z|x) ‖ p(z))
+
+  ● This lower bound is tractable (unlike log p(x) itself) and is maximised in place of the true log-
+    likelihood; the gap between the ELBO and log p(x) is exactly KL(qφ(z|x)‖p(z|x)), so maximising the
+    ELBO also implicitly makes qφ a better approximation of the true posterior.
+
+
+Q23. [Numerical] An encoder outputs μ = 0.4, σ = 0.9 for a given x. A noise sample ε = 0.5 is drawn from
+N(0,1). Compute the sampled latent z using the reparameterization trick.
+
+                                       Page 35 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                             Unit: Deep Unsupervised Learning
+
+Solution
+  ● Step 1 — Apply the reparameterization formula directly:
+
+                              z = μ + σ·ε = 0.4 + (0.9)(0.5) = 0.4 + 0.45 = 0.85
+
+ℹ z = 0.85 is now a deterministic function of μ, σ (learnable) and ε (external randomness) — gradients of
+any downstream loss can flow back into μ and σ.
+
+
+Q24. [Numerical] For a Gaussian encoder q(z|x) = N(μ,σ²) with μ = 0.6, σ = 1.3, compute the KL-
+divergence term KL(q(z|x) ‖ p(z)) against the standard normal prior.
+Solution
+  ● Step 1 — Compute σ² and ln(σ²):
+
+                                       σ2 = 1.69,      ln(1.69) = 0.5247
+
+  ● Step 2 — Substitute into the closed-form KL expression:
+
+                        KL = (1) / (2)(μ2+σ2−lnσ2−1) = (1) / (2)(0.36+1.69−0.5247−1)
+
+                                    KL = (1) / (2)(0.5253) = 0.2627 nats
+
+
+Q25. [Numerical] Given a reconstruction loss of 0.42 and the KL-divergence computed in Q24 (0.2627),
+compute the total VAE training loss (negative ELBO), using weight β = 1.
+Solution
+  ● Step 1 — Add reconstruction loss and (weighted) KL term:
+
+                        LVAE = Reconstruction Loss + β·KL = 0.42 + 1×0.2627 = 0.6827
+
+ℹ Both terms are minimised jointly — pushing reconstruction quality up while keeping the encoder's
+distribution close to N(0,I). β > 1 (as in β-VAE) would weight the KL term more, trading reconstruction
+sharpness for a more disentangled/regularised latent space.
+
+Generative Adversarial Networks (GAN)
+
+Q26. [Short Answer] Explain the architecture of a GAN with reference to the roles of the Generator and
+Discriminator.
+Solution
+  ● Generator G(z): maps random noise z (usually z ~ N(0,I)) to a fake sample G(z), trying to mimic the
+    real data distribution.
+  ● Discriminator D(·): a binary classifier that outputs the probability a given sample is real rather than
+    generated.
+  ● Both real samples x and fake samples G(z) are fed to D; D's classification error provides the gradient
+    signal that trains both networks (Fig. 4.1).
+  ● No labelled data is used anywhere — “real vs. fake” is a label D and G generate for each other,
+    making this an unsupervised technique overall.
+
+
+                                      Page 36 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                             Unit: Deep Unsupervised Learning
+
+
+Q27. [Long Answer / Derivation] Write the minimax value function V(D,G) of a GAN and explain the
+meaning of each term.
+Solution
+
+                        minG maxD V(D,G) = Ex~pdata[log D(x)] + Ez~pz[log(1−D(G(z)))]
+
+  ● First term E[log D(x)]: D's expected log-confidence on REAL samples; D wants this large (D(x)→1).
+  ● Second term E[log(1−D(G(z)))]: D's expected log-confidence that FAKE samples are fake; D also
+    wants this large (D(G(z))→0).
+  ● D therefore maximises the whole sum V; G only appears in the second term and wants to minimise
+    V, i.e. push D(G(z))→1 so D is fooled.
+  ● The min-max structure makes this a two-player zero-sum game, solved by alternating gradient
+    ascent on D and gradient descent on G.
+
+
+Q28. [Long Answer / Derivation] Derive the expression for the optimal discriminator D*_G(x) for a fixed
+generator G.
+Solution
+  ● Step 1 — Rewrite V(D,G) as a single integral over x (substitute x=G(z) in the second expectation,
+    using the generator's implied density p_g):
+
+                            V(D,G) = ∫ [ pdata(x) log D(x) + pg(x) log(1−D(x)) ] dx
+
+  ● Step 2 — For each fixed x, maximise the scalar function f(y)=a·log y + b·log(1−y) over y=D(x), with
+    a=p_data(x), b=p_g(x):
+
+                        df/dy = a/y − b/(1−y) = 0 ⇒ a(1−y) = by ⇒ y = a/(a+b)
+
+  ● Step 3 — Substituting back a, b gives the optimal discriminator:
+
+                                     D*G(x) = pdata(x) / ( pdata(x) + pg(x) )
+
+  ● At the global optimum, p_g = p_data everywhere, so D*(x) = 1/2 for all x — the discriminator can
+    do no better than random guessing.
+
+
+Q29. [Numerical] For one real sample, D(x) = 0.9; for one fake sample, D(G(z)) = 0.2. Compute the
+discriminator loss and the non-saturating generator loss.
+Solution
+  ● Step 1 — Discriminator loss (D wants this LOW):
+
+                            LD = −[log D(x) + log(1−D(G(z)))] = −[ln(0.9)+ln(0.8)]
+
+                                    = −[(−0.1054)+(−0.2231)] = 0.3285
+
+  ● Step 2 — Generator loss, non-saturating form (G wants this LOW):
+
+                                    LG = −log D(G(z)) = −ln(0.2) = 1.6094
+
+ℹ D is performing well here (D(x)=0.9 close to 1, D(G(z))=0.2 close to 0), so L_D is low; correspondingly
+G's loss is high, correctly signalling G still needs to improve.
+
+                                      Page 37 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                             Unit: Deep Unsupervised Learning
+
+
+Q30. [Short Answer + Numerical] Explain mode collapse and the vanishing-gradient problem in GAN
+training, and illustrate the vanishing-gradient issue numerically at D(G(z)) = 0.1.
+Solution
+  ● Mode collapse: G finds a small subset of outputs that reliably fool D and repeatedly produces only
+    those, losing the diversity of p_data. Remedies: mini-batch discrimination, unrolled GANs,
+    Wasserstein GAN (WGAN).
+  ● Vanishing gradients: with the original loss log(1−D(G(z))), when G is weak (D(G(z)) small), the
+    gradient signal for G is disproportionately weak — shown numerically below.
+  ● At s = D(G(z)) = 0.1, compare gradient magnitudes w.r.t. s:
+
+                            Original: |d/ds log(1−s)| = 1/(1−s) = 1/0.9 = 1.11
+
+                           Non-saturating: |d/ds (−log s)| = 1/s = 1/0.1 = 10.0
+
+ℹ The non-saturating gradient is 9× stronger exactly when G is performing this poorly — this is why
+practitioners train G to maximise log D(G(z)) rather than minimise log(1−D(G(z))).
+
+Maximum Entropy Distributions
+
+Q31. [Short Answer] Define entropy and state the Maximum Entropy Principle. Why is it useful for
+probabilistic modelling?
+Solution
+  ● Entropy H(p) = −Σ p(x) log p(x) measures the uncertainty/unpredictability of a distribution p.
+  ● Maximum Entropy Principle (Jaynes): given only some known constraints on a distribution, choose
+    the distribution satisfying those constraints that has the LARGEST possible entropy.
+  ● Usefulness: it is the most “honest” choice — it encodes exactly the known information and nothing
+    more, avoiding hidden, unjustified assumptions that any other qualifying distribution would silently
+    introduce.
+
+
+Q32. [Numerical] Compute the entropy (in bits) of the discrete distribution p = [0.1, 0.2, 0.3, 0.4], and
+compare it to the entropy of the uniform distribution over the same 4 outcomes.
+Solution
+  ● Step 1 — Compute each −pᵢ log₂ pᵢ term:
+
+    −(0.1)log2(0.1)=0.3322, −(0.2)log2(0.2)=0.4644, −(0.3)log2(0.3)=0.5211, −(0.4)log2(0.4)=0.5288
+
+  ● Step 2 — Sum:
+
+                          H(p) = 0.3322+0.4644+0.5211+0.5288 = 1.8465 bits
+
+  ● Step 3 — Uniform-distribution entropy over 4 outcomes, for comparison:
+
+                                    H(uniform) = log2(4) = 2.0000 bits
+
+ℹ H(p) = 1.8465 < H(uniform) = 2.0000, confirming the uniform distribution has the maximum possible
+entropy for 4 outcomes; p is more “predictable” since it favours outcome 4 (probability 0.4).
+
+                                      Page 38 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                               Unit: Deep Unsupervised Learning
+
+
+Q33. [Long Answer / Derivation] Using Lagrange multipliers, derive the maximum entropy distribution for a
+discrete random variable subject only to the normalisation constraint, and show it is the uniform
+distribution.
+Solution
+  ● Step 1 — Lagrangian for H(p)=−Σpᵢ ln pᵢ subject to Σpᵢ=1:
+
+                                           ℒ = −Σi pi ln pi + λ(Σi pi − 1)
+
+  ● Step 2 — Differentiate w.r.t. pᵢ and set to zero:
+
+                                 −ln pi − 1 + λ = 0 ⇒ ln pi = λ−1 ⇒ pi = eλ−1
+
+  ● Step 3 — The right-hand side has no dependence on i, so every pᵢ must equal the same constant c.
+  ● Step 4 — Apply normalisation Σpᵢ=1 over n outcomes:
+
+                        n·c = 1 ⇒ c = 1/n ⇒ pi = 1/n for all i (uniform distribution)
+
+
+Q34. [Long Answer / Derivation] Using Lagrange multipliers, derive the maximum entropy distribution for a
+continuous random variable given constraints on its mean μ and variance σ², and show it is the Gaussian
+distribution.
+Solution
+  ● Step 1 — Lagrangian with one multiplier per constraint (normalisation, mean, variance):
+
+                        ℒ = −∫p ln p dx + λ0(∫p dx−1) + λ1(∫xp dx−μ) + λ2(∫(x−μ)2p dx−σ2)
+
+  ● Step 2 — Functional derivative w.r.t. p(x), set to zero:
+
+                                      −ln p(x) − 1 + λ0 + λ1x + λ2(x−μ)2 = 0
+
+  ● Step 3 — Solve for p(x) — an exponential-family form:
+
+                                       p(x) = exp( λ0−1 + λ1x + λ2(x−μ)2 )
+
+  ● Step 4 — The mean constraint forces λ₁=0 (distribution symmetric about μ); matching the variance
+    constraint identifies λ₂=−1/(2σ²); normalisation fixes the remaining constant, giving:
+
+                        p(x) = (1) / (√(2πσ2)) exp( −(x−μ)2/2σ2 ) (the Gaussian N(μ,σ²))
+
+
+Q35. [Short Answer] Explain the relevance of maximum entropy distributions to energy-based deep
+learning models such as RBM and DBN.
+Solution
+  ● The Boltzmann/Gibbs distribution P(v,h) ∝ exp(−E(v,h)), used by RBM/DBN/DBM/ConvBM (Section
+    6–8), is itself the maximum-entropy distribution subject to a constraint on the expected value of
+    the energy function ⟨E⟩.
+  ● So choosing this exponential/Boltzmann form is not arbitrary — it is the provably least-biased
+    distribution consistent with only knowing the model's average energy, exactly analogous to the
+    Gaussian being the least-biased choice given only mean and variance.
+
+
+
+                                        Page 39 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                           Unit: Deep Unsupervised Learning
+
+  ● Similarly, softmax classifier outputs are the maximum-entropy distribution over labels subject to
+    matching expected logit values.
+
+
+
+
+                                    Page 40 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                            Unit: Deep Unsupervised Learning
+
+Restricted Boltzmann Machines (RBM) and Deep Belief Networks (DBN)
+
+Q36. [Short Answer] Explain the structure of a Restricted Boltzmann Machine and write down its energy
+function E(v,h).
+Solution
+  ● An RBM has one visible layer v and one hidden layer h, fully bipartite-connected (every vᵢ to every
+    hⱼ), with NO intra-layer (v-v or h-h) connections (Fig. 6.1).
+  ● Energy function:
+
+                                    E(v,h) = −Σi aivi − Σj bjhj − Σi,j vihjWij
+
+  ● Lower energy = higher probability under P(v,h)=exp(−E(v,h))/Z; training shapes W,a,b so that
+    training data has low energy.
+
+
+Q37. [Numerical] An RBM has v=[1,0,1], h=[1,1], W=[[0.5,−0.2],[0.3,0.4],[−0.1,0.6]], a=[0.1,−0.2,0.05],
+b=[0.3,−0.1]. Compute the energy E(v,h).
+Solution
+  ● Step 1 — Visible bias term:
+
+                          −aᵀv = −(0.1×1 + (−0.2)×0 + 0.05×1) = −(0.15) = −0.15
+
+  ● Step 2 — Hidden bias term:
+
+                               −bᵀh = −(0.3×1 + (−0.1)×1) = −(0.2) = −0.20
+
+  ● Step 3 — Interaction term (sum over all vᵢhⱼWᵢⱼ, only i=1 and i=3 rows matter since v₂=0):
+
+                            v1h1W11=1×1×0.5=0.5, v1h2W12=1×1×(−0.2)=−0.2
+
+                            v3h1W31=1×1×(−0.1)=−0.1, v3h2W32=1×1×0.6=0.6
+
+                        sum = 0.5−0.2−0.1+0.6 = 0.8 ⇒ interaction term = −0.8
+
+  ● Step 4 — Total energy:
+
+                                   E(v,h) = −0.15 − 0.20 − 0.8 = −1.15
+
+
+Q38. [Long Answer / Derivation] Derive the conditional probability expressions P(hⱼ=1|v) and P(vᵢ=1|h) for
+an RBM.
+Solution
+  ● Step 1 — Regroup the energy so all terms containing hⱼ are together:
+
+                                      E(v,h) = −aᵀv − Σj hj(bj+Σi viWij)
+
+  ● Step 2 — Since P(v,h)∝exp(−E(v,h)) and the exponent is a SUM over j, the exponential factorises
+    into a PRODUCT over j — each hⱼ becomes conditionally independent of the others given v.
+  ● Step 3 — Each factor is an unnormalised Bernoulli in hⱼ∈{0,1}; normalising over the two states gives
+    the logistic sigmoid:
+
+
+                                     Page 41 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                Unit: Deep Unsupervised Learning
+
+                                            P(hj=1|v) = σ( bj + Σi viWij )
+
+  ● Step 4 — By the identical (symmetric) argument, regrouping by vᵢ instead:
+
+                                            P(vi=1|h) = σ( ai + Σj hjWij )
+
+
+Q39. [Numerical] Using the RBM of Q37 (v=[1,0,1], W column 1 = [0.5,0.3,−0.1], b₁=0.3), compute
+P(h₁=1|v).
+Solution
+  ● Step 1 — Weighted sum of visible units into hidden unit 1:
+
+                         b1 + Σi viWi1 = 0.3 + (1×0.5 + 0×0.3 + 1×(−0.1)) = 0.3 + 0.4 = 0.7
+
+  ● Step 2 — Apply sigmoid:
+
+                              P(h1=1|v) = σ(0.7) = 1/(1+e−0.7) = 1/1.4966 = 0.6682
+
+ℹ Given this visible pattern, hidden unit 1 is more likely ON than OFF (66.8% probability).
+
+
+Q40. [Long Answer + Numerical] Explain the Contrastive Divergence (CD-1) algorithm step by step, then
+perform one CD-1 weight update given v⁰=[1,0], W=[[0.6,−0.3],[0.2,0.5]] (biases = 0), η=0.1, and a
+sampled h⁰=[1,0].
+Solution
+  ● Algorithm: (1) clamp v to a training vector v⁰; (2) compute P(h⁰|v⁰) and sample h⁰ (positive phase);
+    (3) compute P(v¹|h⁰), the reconstruction; (4) compute P(h¹|v¹) (negative phase); (5) update
+    ΔWᵢⱼ=η(vᵢ⁰hⱼ⁰−vᵢ¹hⱼ¹).
+  ● Step 1 — Reconstruction v¹=P(v=1|h⁰) using h⁰=[1,0]:
+
+                               P(v1=1|h⁰) = σ(1×0.6+0×(−0.3)) = σ(0.6) = 0.6457
+
+                                 P(v2=1|h⁰) = σ(1×0.2+0×0.5) = σ(0.2) = 0.5498
+
+  ● Step 2 — Negative-phase hidden probabilities h¹=P(h=1|v¹), using v¹=[0.6457, 0.5498]:
+
+                         P(h1=1|v¹) = σ(0.6457×0.6+0.5498×0.2) = σ(0.4974) = 0.6218
+
+                        P(h2=1|v¹) = σ(0.6457×(−0.3)+0.5498×0.5) = σ(0.0812) = 0.5203
+
+  ● Step 3 — CD-1 update of W₁₁ (positive-phase correlation minus negative-phase correlation):
+
+                             ΔW11 = η(v10h10 − v11h11) = 0.1×(1×1 − 0.6457×0.6218)
+
+                                   = 0.1×(1 − 0.4014) = 0.1×0.5986 = 0.0599
+
+                                         W11,new = 0.6 + 0.0599 = 0.6599
+
+ℹ The positive phase correlation (data-driven) exceeded the negative/reconstruction phase, so W₁₁ is
+strengthened, lowering the energy of (and so raising the probability of) configurations like the observed
+v⁰.
+
+Deep Boltzmann Machines (DBM)
+
+                                         Page 42 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                                    Unit: Deep Unsupervised Learning
+
+
+Q41. [Short Answer] Explain how a Deep Belief Network is constructed from stacked RBMs, and describe
+greedy layer-wise pretraining.
+Solution
+  ● A DBN stacks RBMs: v→h¹→h²→…; only the top two layers remain a genuine undirected RBM,
+    lower connections become directed/generative (Fig. 7.1, left panel).
+  11. Train RBM₁ on raw data v via CD, obtaining h¹.
+  12. Freeze RBM₁; treat P(h¹|v) as “data” and train RBM₂ on top of it to obtain h².
+  13. Repeat, adding one layer at a time.
+  14. Optionally fine-tune the full stack afterward (wake-sleep, or backprop if used for classification).
+
+
+Q42. [Short Answer] Differentiate between Deep Belief Networks (DBN) and Deep Boltzmann Machines
+(DBM).
+Solution
+
+        Aspect                            DBN                                             DBM
+
+ Connections            Top 2 layers undirected; rest directed         All layers undirected
+
+ Inference              Fast, single top-down pass                     Iterative, bidirectional mean-field
+
+ Info flow              One-directional (top-down)                     Bidirectional (bottom-up + top-down)
+
+
+Q43. [Long Answer] Write the energy function of a DBM with one visible and two hidden layers, and
+explain each term.
+Solution
+
+                                E(v,h1,h2) = −aᵀv − b1ᵀh1 − b2ᵀh2 − vᵀW1h1 − h1ᵀW2h2
+
+  ● a, b¹, b²: bias terms for each layer, favouring individual units being on/off.
+  ● −vᵀW¹h¹: interaction energy between the visible layer and the first hidden layer (as in a single RBM).
+  ● −h¹ᵀW²h²: interaction energy between the first and second hidden layers — the extra term that
+    distinguishes a 2-hidden-layer DBM from a plain RBM.
+  ● The pattern generalises: one −(layer)ᵀW(layer) term per adjacent layer pair, for any depth.
+
+
+Q44. [Numerical] A DBM has v=[1,0], h¹=[1,1], h²=[0,1], W¹=[[0.4,0.2],[−0.3,0.5]],
+W²=[[0.6,−0.1],[0.3,0.2]], a=[0.1,0.05], b¹=[0.2,−0.1], b²=[0.15,0.1]. Compute the total energy.
+Solution
+  ● Step 1 — Visible bias term:
+
+                                         −aᵀv = −(0.1×1+0.05×0) = −0.10
+
+  ● Step 2 — Hidden-layer-1 bias term:
+
+                                       −b1ᵀh1 = −(0.2×1+(−0.1)×1) = −0.10
+
+  ● Step 3 — Hidden-layer-2 bias term:
+
+                                         Page 43 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                            Unit: Deep Unsupervised Learning
+
+                                    −b2ᵀh2 = −(0.15×0+0.1×1) = −0.10
+
+  ● Step 4 — v–h¹ interaction term:
+
+               v1h11W111=1×1×0.4=0.4, v1h12W112=1×1×0.2=0.2 (v2=0, its row contributes 0)
+
+                                       sum = 0.6 ⇒ term = −0.6
+
+  ● Step 5 — h¹–h² interaction term:
+
+                           h11h21W211=1×0×0.6=0, h11h22W212=1×1×(−0.1)=−0.1
+
+                             h12h21W221=1×0×0.3=0, h12h22W222=1×1×0.2=0.2
+
+                                       sum = 0.1 ⇒ term = −0.1
+
+  ● Step 6 — Total energy:
+
+                                E = −0.10−0.10−0.10−0.60−0.10 = −1.00
+
+
+Q45. [Short Answer] Explain the mean-field variational inference approximation used in DBMs, and why
+exact inference is intractable.
+Solution
+  ● Exact issue: once a DBM has ≥ 2 hidden layers, a middle layer (e.g. h¹) is influenced by BOTH the
+    layer below (v) and the layer above (h²), which become statistically coupled given v — the clean
+    RBM factorisation trick no longer applies, and exact P(h¹,h²|v) needs summing over exponentially
+    many states.
+  ● Mean-field fix: approximate the true posterior with an independent (factorised) distribution
+    Q(h¹,h²) = ∏ᵢq(h¹ᵢ)·∏ₖq(h²ₖ), governed by parameters μ¹, μ².
+  ● These are updated iteratively until convergence, e.g. μ¹ⱼ ← σ(ΣᵢvᵢW¹ᵢⱼ + Σₖμ²ₖW²ⱼₖ) — the same
+    sigmoid rule as an RBM, but now including a contribution from the layer above too.
+
+Convolutional Boltzmann Machine
+
+Q46. [Short Answer] Explain the motivation for introducing convolution into Boltzmann Machines, and
+describe the resulting architecture.
+Solution
+  ● A fully-connected RBM/DBM ignores the 2-D spatial structure of images and needs an impractically
+    large number of parameters for realistic image sizes (Q49).
+  ● A Convolutional Boltzmann Machine (Convolutional DBN) instead uses small, shared filters that
+    slide across the visible layer, exactly as in a CNN, but within the probabilistic/energy-based RBM
+    framework.
+  ● Architecture: input image v → detection layer (one feature map per filter, weights shared across all
+    positions) → pooling layer (via probabilistic max-pooling) (Fig. 8.1).
+
+
+Q47. [Short Answer] Explain probabilistic max-pooling in a Convolutional RBM, and how it differs from
+ordinary CNN max-pooling.
+
+                                     Page 44 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                             Unit: Deep Unsupervised Learning
+
+Solution
+  ● Ordinary CNN max-pooling deterministically takes the max of a block — it is just a fixed function
+    with no probabilistic meaning, so it cannot be inserted into an energy function.
+  ● Probabilistic max-pooling instead groups a block of detection units {h₁,…,hₙ} with one pooling unit
+    p, defining a joint softmax-style distribution over the (n+1) valid states: exactly one hᵢ=1 with p=1,
+    or all hᵢ=0 with p=0.
+  ● This keeps the whole model a valid, normalisable Boltzmann distribution while still achieving the
+    same practical summarising/invariance effect as CNN pooling.
+
+
+Q48. [Numerical] A 4×4 binary image v = [[1,0,1,0],[0,1,1,0],[1,1,0,1],[0,0,1,1]] is convolved with a 2×2
+shared filter K=[[1,0],[0,1]], stride 1, no padding. Compute the detection-layer feature map.
+Solution
+  ● Step 1 — Output size: (4−2+1)×(4−2+1) = 3×3. Since K picks the top-left and bottom-right of each
+    patch, out(i,j)=v(i,j)+v(i+1,j+1).
+  ● Step 2 — Compute all 9 outputs (0-indexed):
+
+     out(0,0)=v(0,0)+v(1,1)=1+1=2, out(0,1)=v(0,1)+v(1,2)=0+1=1, out(0,2)=v(0,2)+v(1,3)=1+0=1
+
+     out(1,0)=v(1,0)+v(2,1)=0+1=1, out(1,1)=v(1,1)+v(2,2)=1+0=1, out(1,2)=v(1,2)+v(2,3)=1+1=2
+
+     out(2,0)=v(2,0)+v(3,1)=1+0=1, out(2,1)=v(2,1)+v(3,2)=1+1=2, out(2,2)=v(2,2)+v(3,3)=0+1=1
+
+  ● Step 3 — Resulting 3×3 feature map:
+
+                                          [[2,1,1], [1,1,2], [1,2,1]]
+
+ℹ This raw map would then have the ONE shared bias added and sigmoid applied (as in Worked Example
+8.1) to get firing probabilities at each position.
+
+
+Q49. [Numerical + Short Answer] Compare parameter counts: a fully-connected RBM with 200 hidden units
+on a 32×32 image, vs. a convolutional RBM with 20 filters of size 7×7. Explain the advantage.
+Solution
+  ● Step 1 — Fully-connected RBM: 32×32=1024 visible units × 200 hidden units:
+
+                                1024 × 200 = 204,800 weight parameters
+
+  ● Step 2 — Convolutional RBM: 20 filters, each 7×7, shared across all positions:
+
+                                   20 × (7×7) = 980 weight parameters
+
+  ● Step 3 — Reduction factor:
+
+                                  204,800 / 980 ≈ 209× fewer weights
+
+ℹ Advantage: ≈209× fewer parameters means far less risk of overfitting and far less memory/compute,
+while weight sharing also grants translation invariance — a feature detector learned at one location
+automatically applies everywhere in the image.
+
+
+
+                                      Page 45 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                             Unit: Deep Unsupervised Learning
+
+
+Q50. [Short Answer] For each scenario, name the most suitable model from this unit and briefly justify
+your choice: (a) generate new, realistic, high-quality face images; (b) simple linear-ish dimensionality
+reduction with a straightforward reconstruction loss; (c) obtain an explicit (if approximate)
+probability/energy score for an input; (d) robust joint classification under noisy or partially missing input.
+Solution
+  ● (a) GAN — adversarial training with no explicit reconstruction loss typically yields the sharpest,
+    most realistic samples (Section 4).
+  ● (b) (Undercomplete) Autoencoder — simplest architecture, directly optimises reconstruction loss,
+    closest in spirit to a non-linear PCA (Section 2).
+  ● (c) RBM / DBN — explicitly defines an energy E(v,h) and hence an (unnormalised)
+    probability/energy score for any input (Section 6).
+  ● (d) DBM — fully undirected, bidirectional inference lets top-down context help disambiguate noisy
+    or missing bottom-up evidence (Section 7.1, 7.4).
+See Section 9.1 for the complete side-by-side comparison of all seven models covered in this unit.
+
+
+
+
+                                      Page 46 of 47 | Manipal University Jaipur
+CCE3144 Deep Learning                                                             Unit: Deep Unsupervised Learning
+
+
+12. References
+
+  15. Goodfellow, I., Bengio, Y., Courville, A. (2016). Deep Learning. MIT Press.
+  16. Goodfellow, I. et al. (2014). Generative Adversarial Networks. NeurIPS.
+  17. Kingma, D. P., Welling, M. (2014). Auto-Encoding Variational Bayes. ICLR.
+  18. Hinton, G. E. (2002). Training Products of Experts by Minimizing Contrastive Divergence. Neural
+      Computation.
+  19. Hinton, G. E., Osindero, S., Teh, Y. W. (2006). A Fast Learning Algorithm for Deep Belief Nets. Neural
+      Computation.
+  20. Salakhutdinov, R., Hinton, G. E. (2009). Deep Boltzmann Machines. AISTATS.
+  21. Lee, H., Grosse, R., Ranganath, R., Ng, A. Y. (2009). Convolutional Deep Belief Networks for Scalable
+      Unsupervised Learning of Hierarchical Representations. ICML.
+  22. Jaynes, E. T. (1957). Information Theory and Statistical Mechanics. Physical Review.
+  23. Bishop, C. M. (2006). Pattern Recognition and Machine Learning. Springer.
+  24. Vincent, P. et al. (2008). Extracting and Composing Robust Features with Denoising Autoencoders.
+      ICML.
+
+
+
+
+                                      Page 47 of 47 | Manipal University Jaipur
+

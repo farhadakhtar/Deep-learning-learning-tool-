@@ -1,0 +1,702 @@
+     1→CCE3144 Deep Learning                                                           Unit: Convolutional Neural Networks
+     2→
+     3→
+     4→
+     5→
+     6→                        MANIPAL UNIVERSITY JAIPUR
+     7→                        Department of Computer & Communication Engineering
+     8→
+     9→
+    10→
+    11→
+    12→                           CCE3144 | DEEP LEARNING
+    13→                                           [L-T-P-C : 3 0 0 3]
+    14→
+    15→
+    16→                                          LECTURE NOTES
+    17→                           Unit: Convolutional Neural Networks
+    18→
+    19→                                              Course Instructor
+    20→                                     Dr. Manoj Kumar Sharma
+    21→
+    22→
+    23→  Prescribed Syllabus -- Convolutional Neural Networks
+    24→  Introduction to Convnet, training a Convnet, weights initialization, batch normalization, pooling,
+    25→  padding, dropouts, hyperparameter optimization, CNN Architectures -- AlexNet, VGG, Inception,
+    26→  ResNet.
+    27→
+    28→
+    29→
+    30→
+    31→                                     Page 1 of 46 | Manipal University Jaipur
+    32→CCE3144 Deep Learning                                                            Unit: Convolutional Neural Networks
+    33→
+    34→
+    35→Contents
+    36→
+    37→1. Introduction to Convolutional Neural Networks (CNN)
+    38→
+    39→2. The Convolution Operation -- Filters, Feature Maps, Worked Example
+    40→
+    41→3. Padding and Stride
+    42→
+    43→4. Pooling (Max Pooling and Average Pooling)
+    44→
+    45→5. Training a ConvNet -- Forward Pass, Loss, Backpropagation, Gradient Descent
+    46→
+    47→6. Weight Initialization -- Zero, Random, Xavier/Glorot, He Initialization
+    48→
+    49→7. Batch Normalization
+    50→
+    51→8. Dropout
+    52→
+    53→9. Hyperparameter Optimization
+    54→
+    55→10. CNN Architectures -- AlexNet, VGG, Inception (GoogLeNet), ResNet
+    56→
+    57→11. Summary / Quick Revision Tables
+    58→
+    59→12. Practice Questions -- Section A: 15 Multiple Choice Questions (with solutions)
+    60→
+    61→13. Practice Questions -- Section B: 35 Short / Numerical / Descriptive Questions (with detailed
+    62→solutions)
+    63→
+    64→
+    65→
+    66→
+    67→                                      Page 2 of 46 | Manipal University Jaipur
+    68→CCE3144 Deep Learning                                                           Unit: Convolutional Neural Networks
+    69→
+    70→
+    71→1. Introduction to Convolutional Neural Networks
+    72→
+    73→1.1 What is a CNN?
+    74→  ● A Convolutional Neural Network (CNN / ConvNet) is a deep learning architecture built specifically
+    75→    for grid-structured data such as images (a 2-D grid of pixels).
+    76→  ● Instead of treating every pixel as an independent input feature (as a plain dense network would), a
+    77→    CNN learns small filters (kernels) that slide across the image and detect local patterns -- edges,
+    78→    corners, textures, colours.
+    79→  ● CNNs are the backbone of almost all modern computer-vision systems: image classification, object
+    80→    detection, segmentation, face recognition, medical-image analysis, and self-driving perception.
+    81→
+    82→1.2 Why not simply use a fully-connected (dense) network on an image?
+    83→A dense (fully connected) layer connects every input pixel to every neuron. For images this is extremely
+    84→wasteful, as the next example shows.
+    85→
+    86→  Example 1.1 -- Parameter Explosion in a Plain Dense Network
+    87→  Problem: A small colour image of size 32×32×3 is fed to a hidden layer of 1000 neurons. Compare
+    88→  the number of parameters needed by (a) a fully-connected layer and (b) a convolution layer with 10
+    89→  filters of size 5×5×3.
+    90→  Step 1 -- Flatten the image: 32 × 32 × 3 = 3072 input values.
+    91→
+    92→  Step 2 -- Dense layer parameter count: each of the 1000 neurons needs its own weight for every
+    93→  one of the 3072 inputs, plus 1 bias.
+    94→
+    95→                              Params = (3072 × 1000) + 1000 = 3,073,000
+    96→
+    97→  Step 3 -- Convolution layer parameter count: 10 filters, each 5×5×3, are reused (slid) across the
+    98→  whole image.
+    99→
+   100→                               Params = (5×5×3 + 1) × 10 = 76 × 10 = 760
+   101→
+   102→  Step 4 -- Compare: 3,073,000 ÷ 760 ≈ 4043.
+   103→
+   104→  Significance: the convolution layer needs about 4000× fewer parameters than the dense layer,
+   105→  because the same small filter is reused at every location instead of learning a brand-new weight for
+   106→  every pixel. Fewer parameters means faster training, less memory, and (importantly) less overfitting
+   107→  on limited data.
+   108→
+   109→
+   110→
+   111→1.3 Key Ideas That Make CNNs Efficient
+   112→  ● Local connectivity (sparse interactions): each neuron in a conv layer looks at only a small local
+   113→    patch (its receptive field) of the input, not the entire image.
+   114→  ● Parameter sharing: the same filter weights are used at every spatial position, so a pattern learned
+   115→    in one corner of the image (say, a vertical edge) can be detected anywhere else in the image with
+   116→    the very same filter.
+   117→
+   118→
+   119→                                     Page 3 of 46 | Manipal University Jaipur
+   120→CCE3144 Deep Learning                                                                       Unit: Convolutional Neural Networks
+   121→
+   122→  ● Translation invariance: because the filter scans the whole image, the network can recognise an
+   123→    object even after it shifts position within the frame.
+   124→  ● Hierarchical feature learning: early layers learn simple features (edges, colour blobs); deeper layers
+   125→    combine these into increasingly complex features (textures, object parts, whole objects).
+   126→
+   127→1.4 The Overall CNN Pipeline
+   128→A typical CNN is simply a stack of a few standard building blocks, repeated and then followed by a
+   129→classifier head:
+   130→
+   131→
+   132→
+   133→
+   134→ Figure 1.1: A classic CNN pipeline -- alternating Convolution+ReLU and Pooling blocks extract features; Fully-Connected
+   135→                     layers then classify them (this particular layout is the classic LeNet-style pipeline).
+   136→
+   137→  ● Convolution layer -- applies learnable filters to extract local features and produces feature maps.
+   138→  ● Activation function (ReLU) -- introduces non-linearity so the network can model complex, non-
+   139→    linear relationships.
+   140→  ● Pooling layer -- down-samples feature maps, cutting computation and adding a small amount of
+   141→    translation invariance.
+   142→  ● Fully Connected (Dense) layer -- after feature extraction, the high-level features are flattened and
+   143→    passed through dense layers for final decision-making.
+   144→  ● Softmax -- converts the last layer's raw scores (logits) into class probabilities that sum to 1.
+   145→
+   146→1.5 CNN vs. Traditional Neural Network -- Quick Comparison
+   147→
+   148→            Aspect               Plain Dense (Fully Connected) Network                   Convolutional Neural Network
+   149→
+   150→                                                                                     Each neuron sees only a small local
+   151→ Connectivity                   Every input connects to every neuron
+   152→                                                                                     patch
+   153→
+   154→ Parameters                     Extremely large for image-sized input                Far fewer, due to weight/filter sharing
+   155→
+   156→                                                                                     Preserved -- filters operate on 2-D
+   157→ Spatial structure              Ignored -- image must be flattened
+   158→                                                                                     patches
+   159→
+   160→ Translation invariance         None by default                                      Built in, via shared filters + pooling
+   161→
+   162→                                                                                     Images, video frames, spatial-grid
+   163→ Typical use                    Tabular / generic data
+   164→                                                                                     data
+   165→
+   166→
+   167→
+   168→                                          Page 4 of 46 | Manipal University Jaipur
+   169→CCE3144 Deep Learning                                                                 Unit: Convolutional Neural Networks
+   170→
+   171→
+   172→2. The Convolution Operation
+   173→
+   174→2.1 What is a Filter (Kernel)?
+   175→  ● A filter (kernel) is a small matrix of learnable weights -- commonly 3×3, 5×5, or 7×7.
+   176→  ● It is convolved (slid) across the input, computing one dot product at every position it stops on.
+   177→  ● Each filter learns to detect a specific pattern -- a vertical edge, a horizontal edge, a colour blob, a
+   178→    texture, and so on.
+   179→  ● A convolution layer normally has many filters. Each filter produces its own 2-D feature map
+   180→    (activation map); stacking all of them gives the 3-D output volume of the layer.
+   181→
+   182→2.2 The Sliding-Window Computation -- Step by Step
+   183→  ● Step 1: Place the filter over the top-left corner of the input.
+   184→  ● Step 2: Multiply each filter weight by the input value it currently overlaps (element-wise).
+   185→  ● Step 3: Sum all the products (add a bias term if used) -- this single number becomes ONE entry of
+   186→    the output feature map.
+   187→  ● Step 4: Slide the filter by the stride (number of pixels moved per step) and repeat Steps 2-3, until
+   188→    the filter has swept over the whole input.
+   189→
+   190→2.3 Worked Example -- Convolving a 5×5 Input with a 3×3 Filter
+   191→
+   192→
+   193→
+   194→
+   195→       Figure 2.1: A 3×3 filter convolved with a 5×5 input (stride 1, no padding) produces a 3×3 output feature map.
+   196→
+   197→
+   198→
+   199→
+   200→                                           Page 5 of 46 | Manipal University Jaipur
+   201→CCE3144 Deep Learning                                                               Unit: Convolutional Neural Networks
+   202→
+   203→
+   204→  Example 2.1 -- Full Convolution Computation
+   205→  Given: Input (5×5) and Filter (3×3) as shown in Figure 2.1. Stride = 1, no padding.
+   206→
+   207→  Step 1 -- Output size: with N=5, F=3, S=1, P=0, the output is (5−3)/1+1 = 3, so a 3×3 feature map (9
+   208→  values to compute).
+   209→
+   210→  Step 2 -- Compute the top-left value (position 0,0), shown highlighted in Figure 2.1:
+   211→
+   212→                        (1×1+1×0+1×1) + (0×0+1×1+1×0) + (0×1+0×0+1×1) = 2 + 1 + 1 = 4
+   213→
+   214→  Step 3 -- Slide the filter one column right and repeat for every position. All nine computations:
+   215→
+   216→         Output position                   Element-wise sum (row by row)                                 Value
+   217→
+   218→ (0,0)                         (1+0+1)+(0+1+0)+(0+0+1)                                         4
+   219→
+   220→ (0,1)                         (1+0+0)+(0+1+0)+(0+0+1)                                         3
+   221→
+   222→ (0,2)                         (1+0+0)+(0+1+0)+(1+0+1)                                         4
+   223→
+   224→ (1,0)                         (0+0+1)+(0+0+0)+(0+0+1)                                         2
+   225→
+   226→ (1,1)                         (1+0+1)+(0+1+0)+(0+0+1)                                         4
+   227→
+   228→ (1,2)                         (1+0+0)+(0+1+0)+(1+0+0)                                         3
+   229→
+   230→ (2,0)                         (0+0+1)+(0+0+0)+(0+0+1)                                         2
+   231→
+   232→ (2,1)                         (0+0+1)+(0+1+0)+(1+0+0)                                         3
+   233→
+   234→ (2,2)                         (1+0+1)+(0+0+0)+(1+0+0)                                         4
+   235→
+   236→
+   237→
+   238→Final output feature map: [[4, 3, 4], [2, 4, 3], [2, 3, 4]] -- matches Figure 2.1 exactly.
+   239→
+   240→2.4 Multiple Filters and Multi-Channel Inputs
+   241→  ● Depth of a filter always matches the depth of its input. If the input has C channels (e.g. C=3 for an
+   242→    RGB image), every filter is actually F×F×C -- it convolves across all channels simultaneously and the
+   243→    C partial sums are added together, giving back a single 2-D number per position (not C separate
+   244→    maps).
+   245→  ● Number of output channels = number of filters. Using K independent filters on the same input
+   246→    produces K separate 2-D feature maps, stacked to form a volume of depth K.
+   247→
+   248→
+   249→
+   250→
+   251→                                         Page 6 of 46 | Manipal University Jaipur
+   252→CCE3144 Deep Learning                                                                Unit: Convolutional Neural Networks
+   253→
+   254→
+   255→  Example 2.2 -- Parameters for a Multi-Channel Convolution Layer
+   256→  Given: Input volume 32×32×3 (RGB), 10 filters of size 5×5, stride 1, no padding.
+   257→
+   258→  Step 1: Each filter's true shape is 5×5×3 (depth matches input depth automatically).
+   259→
+   260→  Step 2 -- Parameters per filter (including 1 bias):
+   261→
+   262→                                        (5 × 5 × 3) + 1 = 75 + 1 = 76
+   263→
+   264→  Step 3 -- Total parameters for 10 filters:
+   265→
+   266→                                         76 × 10 = 760 parameters
+   267→
+   268→  Step 4 -- Output volume size: spatial size = (32−5)/1+1 = 28, depth = number of filters = 10, so the
+   269→  output volume is 28×28×10.
+   270→
+   271→  Significance: notice the parameter count (760) does not depend on the image's spatial size (32×32)
+   272→  at all -- only on the filter size, input depth, and number of filters. This is exactly why CNNs scale so
+   273→  much better than dense networks to large images.
+   274→
+   275→
+   276→
+   277→2.5 Key Terminology Recap
+   278→
+   279→                   Term                                                    Meaning
+   280→
+   281→ Filter / Kernel                     Small matrix of learnable weights used to scan the input
+   282→
+   283→ Stride                              Number of pixels the filter moves at each step
+   284→
+   285→ Feature map / Activation map        Output produced by convolving one filter over the input
+   286→
+   287→ Receptive field                     The region of the input that influences one output value
+   288→
+   289→ Depth / Channels                    Number of feature maps stacked together in a volume
+   290→
+   291→
+   292→
+   293→
+   294→3. Padding and Stride
+   295→
+   296→3.1 Why Do We Need Padding?
+   297→  ● Without padding, the spatial size shrinks after every convolution (e.g. 32→28→24…), which limits
+   298→    how many layers a network can have.
+   299→  ● Border pixels are used far less often than centre pixels -- a corner pixel is covered by the filter only
+   300→    once, while a centre pixel is covered many times -- so border information is under-represented.
+   301→  ● Padding adds a border (almost always zeros) around the input so that we can: (1) control / preserve
+   302→    the output size, and (2) give border pixels fairer coverage.
+   303→
+   304→3.2 Types of Padding
+   305→
+   306→
+   307→
+   308→
+   309→                                       Page 7 of 46 | Manipal University Jaipur
+   310→CCE3144 Deep Learning                                                                  Unit: Convolutional Neural Networks
+   311→
+   312→
+   313→            Type                                     Meaning                                  Effect on output size
+   314→
+   315→                                                                                        Output is smaller than the
+   316→ Valid (P = 0)                No padding added
+   317→                                                                                        input
+   318→
+   319→                                                                                        Output size equals input size
+   320→ Same                         Just enough zero padding added
+   321→                                                                                        (stride = 1)
+   322→
+   323→                              Maximum padding (filter starts with 1 pixel               Output is larger than the input
+   324→ Full
+   325→                              overlap)                                                  (rarely used)
+   326→
+   327→
+   328→
+   329→
+   330→3.3 The General Output-Size Formula
+   331→For an N×N input, filter size F, padding P, and stride S, the output spatial size O is:
+   332→
+   333→                                               O = (N + 2P − F) / (S) + 1
+   334→
+   335→  ● N = input size (height or width), F = filter size, P = padding (pixels added on each side), S = stride.
+   336→  ● The division is followed by a floor (round down): if the filter does not fit an exact whole number of
+   337→    times, the last partial slide is simply not used.
+   338→
+   339→3.4 Worked Example -- Finding Padding for 'Same' Output Size
+   340→
+   341→
+   342→
+   343→
+   344→Figure 3.1: Zero padding (p=1) added around a 5×5 input so that a 3×3 filter (stride 1) produces an output the same size as
+   345→                                                      the input.
+   346→
+   347→
+   348→
+   349→
+   350→                                           Page 8 of 46 | Manipal University Jaipur
+   351→CCE3144 Deep Learning                                                                Unit: Convolutional Neural Networks
+   352→
+   353→
+   354→  Example 3.1 -- Solve for the Padding That Keeps Output Size = Input Size
+   355→  Given: N=5, F=3, S=1. Find P such that O = N ('same' padding).
+   356→
+   357→  Step 1 -- Start from the output formula and set O = N:
+   358→
+   359→                                             N = (N + 2P − F) / (S) + 1
+   360→
+   361→  Step 2 -- With S = 1, simplify:
+   362→
+   363→                           N − 1 = N + 2P − F ⟹ 2P = F − 1 ⟹ P = (F − 1) / (2)
+   364→
+   365→  Step 3 -- Substitute F = 3:
+   366→
+   367→                                                  P = (3 − 1) / 2 = 1
+   368→
+   369→  Step 4 -- Verify by plugging back in:
+   370→
+   371→                                    O = ((5 + 2×1 − 3) / 1) + 1 = (4/1) + 1 = 5 ✓
+   372→
+   373→  Significance: the neat formula P = (F−1)/2 only gives a whole number when F is odd -- this is exactly
+   374→  why almost all CNN filters use odd sizes (3×3, 5×5, 7×7).
+   375→
+   376→
+   377→
+   378→3.5 Worked Example -- Effect of Stride
+   379→
+   380→  Example 3.2 -- Output Size with Stride 2
+   381→  (a) Given: N=7, F=3, S=2, P=0.
+   382→
+   383→                                     O = ⌊(7 − 3)/2⌋ + 1 = ⌊4/2⌋ + 1 = 2 + 1 = 3
+   384→
+   385→  (b) Given: N=9, F=3, S=2, P=1.
+   386→
+   387→                                O = ⌊(9 + 2 − 3)/2⌋ + 1 = ⌊8/2⌋ + 1 = 4 + 1 = 5
+   388→
+   389→  Significance: a larger stride skips positions, so the filter is applied fewer times -- the feature map
+   390→  shrinks faster, computation drops, but some fine spatial detail can be lost.
+   391→
+   392→
+   393→
+   394→3.6 Receptive Field -- Why Stacking Small Filters Works So Well
+   395→  ● Receptive field = the region of the original input image that a given output neuron is influenced by.
+   396→  ● Even though each individual filter may be small (e.g. 3×3), stacking several conv layers makes the
+   397→    effective receptive field grow with depth.
+   398→For stride-1 layers, each additional F×F conv layer grows the receptive field by (F−1):
+   399→
+   400→                                                 RFout = RFin + (F − 1)
+   401→
+   402→
+   403→
+   404→
+   405→                                          Page 9 of 46 | Manipal University Jaipur
+   406→CCE3144 Deep Learning                                                             Unit: Convolutional Neural Networks
+   407→
+   408→
+   409→  Example 3.3 -- Receptive Field of Three Stacked 3×3 Convolutions
+   410→  Layer 1 (3×3): RF = 3
+   411→
+   412→  Layer 2 (3×3): RF = 3 + (3−1) = 5
+   413→
+   414→  Layer 3 (3×3): RF = 5 + (3−1) = 7
+   415→
+   416→  Compare with a single 7×7 convolution: it also has RF = 7 -- the same receptive field! But look at the
+   417→  parameter cost, for C input/output channels at every layer:
+   418→
+   419→                            3 × (3×3×C×C) = 27C² vs. 1 × (7×7×C×C) = 49C²
+   420→
+   421→  With C = 64: 27×64² = 110,592 parameters vs. 49×64² = 200,704 parameters -- the stacked 3×3 filters
+   422→  use only about 55% as many parameters (≈45% fewer).
+   423→
+   424→  Significance: three small filters reach the same receptive field as one big filter, with fewer
+   425→  parameters AND two extra ReLU non-linearities in between (making the network more expressive).
+   426→  This is precisely the design idea behind VGG (Section 10.2).
+   427→
+   428→
+   429→
+   430→
+   431→4. Pooling
+   432→
+   433→4.1 Why Pooling?
+   434→  ● Pooling reduces the spatial size (height, width) of feature maps, cutting computation and the
+   435→    number of parameters needed in later layers.
+   436→  ● It provides a small amount of translation invariance -- a tiny shift in the input barely changes the
+   437→    pooled output.
+   438→  ● It helps control overfitting by summarising a region instead of keeping every precise activation
+   439→    value.
+   440→  ● Important exam point: pooling has no learnable parameters -- it is a fixed mathematical operation
+   441→    (max or mean), unlike a convolution layer which has learnable weights and a bias.
+   442→
+   443→4.2 Types of Pooling
+   444→  ● Max Pooling: takes the maximum value inside each window -- keeps the strongest / most 'present'
+   445→    activation.
+   446→  ● Average Pooling: takes the mean value inside each window -- produces a smoother, less peaky
+   447→    summary.
+   448→  ● Global Average Pooling (GAP): an extreme case that pools an entire feature map down to a single
+   449→    number per channel. Used in modern architectures (GoogLeNet, ResNet) right before the final
+   450→    classifier, in place of a large Flatten + Dense combination (see Example 4.2).
+   451→
+   452→4.3 Worked Example -- Max and Average Pooling
+   453→
+   454→
+   455→
+   456→                                      Page 10 of 46 | Manipal University Jaipur
+   457→CCE3144 Deep Learning                                                                   Unit: Convolutional Neural Networks
+   458→
+   459→
+   460→
+   461→
+   462→     Figure 4.1: A 4×4 input reduced by 2×2 pooling with stride 2. Each coloured 2×2 block becomes one output value.
+   463→
+   464→
+   465→  Example 4.1 -- Compute Max Pooling and Average Pooling
+   466→  Given: 4×4 input (Figure 4.1), pooling window 2×2, stride 2.
+   467→
+   468→  Step 1 -- Top-left window {1, 3, 5, 6}:
+   469→
+   470→                                max = 6        mean = (1+3+5+6)/4 = 15/4 = 3.75
+   471→
+   472→  Step 2 -- Top-right window {2, 4, 1, 2}:
+   473→
+   474→                                 max = 4        mean = (2+4+1+2)/4 = 9/4 = 2.25
+   475→
+   476→  Step 3 -- Bottom-left window {2, 4, 0, 1}:
+   477→
+   478→                                 max = 4        mean = (2+4+0+1)/4 = 7/4 = 1.75
+   479→
+   480→  Step 4 -- Bottom-right window {3, 1, 2, 5}:
+   481→
+   482→                                max = 5        mean = (3+1+2+5)/4 = 11/4 = 2.75
+   483→
+   484→  Result -- Max-pooled output: [[6, 4], [4, 5]]         Average-pooled output: [[3.75, 2.25], [1.75, 2.75]]
+   485→
+   486→
+   487→
+   488→4.4 Output-Size Formula for Pooling
+   489→Pooling uses the same size formula as convolution, with padding almost always 0:
+   490→
+   491→                                                 O = (N − F) / (S) + 1
+   492→
+   493→Check against Figure 4.1: N=4, F=2, S=2 ⟹ O = (4−2)/2 + 1 = 1 + 1 = 2, giving the 2×2 output shown
+   494→above.
+   495→
+   496→4.5 Max Pooling vs. Average Pooling -- When to Use Which
+   497→
+   498→            Aspect                            Max Pooling                                   Average Pooling
+   499→
+   500→ What it keeps                 The strongest activation in the window            The overall / smoothed activation
+   501→
+   502→                                          Page 11 of 46 | Manipal University Jaipur
+   503→CCE3144 Deep Learning                                                                Unit: Convolutional Neural Networks
+   504→
+   505→
+   506→            Aspect                        Max Pooling                                    Average Pooling
+   507→
+   508→                            Highlights sharp features (edges,
+   509→ Sensitivity                                                                 Less sensitive to noise / outliers
+   510→                            textures)
+   511→
+   512→                            Hidden layers (classic CNNs: AlexNet,
+   513→ Typical placement                                                           Final layer, as Global Average Pooling
+   514→                            VGG)
+   515→
+   516→                                                                             Gradient is spread equally to all
+   517→ Gradient flow (backprop)   Gradient flows only to the max element
+   518→                                                                             elements
+   519→
+   520→
+   521→
+   522→  Example 4.2 -- Parameter Savings from Global Average Pooling
+   523→  Given: the last conv feature map is 7×7×512 (as in VGG16), and we need to connect it to a 1000-class
+   524→  output.
+   525→
+   526→  Option A -- Flatten + Dense: flatten to 7×7×512 = 25,088 values, then a dense layer maps this to
+   527→  4096 units.
+   528→
+   529→                            Params = 25,088 × 4096 + 4096 = 102,764,544
+   530→
+   531→  Option B -- Global Average Pooling: average each of the 512 channels over all 7×7=49 positions →
+   532→  512 numbers (zero learnable parameters), then connect directly to 1000 outputs.
+   533→
+   534→                                 Params = 512 × 1000 + 1000 = 513,000
+   535→
+   536→  Significance: GAP needs roughly 200× fewer parameters at the classifier head, which is exactly why
+   537→  GoogLeNet and ResNet use it instead of large fully-connected stacks -- it also reduces overfitting
+   538→  substantially.
+   539→
+   540→
+   541→
+   542→
+   543→5. Training a ConvNet
+   544→
+   545→5.1 The Training Loop -- Overview
+   546→Training a CNN means repeatedly adjusting every filter weight and bias so that the network's predictions
+   547→get closer to the true labels. This happens in a four-step loop, repeated for every mini-batch, for many
+   548→epochs:
+   549→
+   550→
+   551→
+   552→
+   553→                                      Page 12 of 46 | Manipal University Jaipur
+   554→CCE3144 Deep Learning                                                                Unit: Convolutional Neural Networks
+   555→
+   556→
+   557→
+   558→
+   559→Figure 5.1: The training loop -- forward pass, loss computation, backward pass, and weight update, repeated every mini-
+   560→                                                          batch.
+   561→
+   562→  ● 1. Forward Pass -- push a batch of images through every conv, pooling, and FC layer to get
+   563→    predictions.
+   564→  ● 2. Compute Loss -- compare the predictions with the true labels using a loss function L.
+   565→  ● 3. Backward Pass (Backpropagation) -- use the chain rule to compute the gradient of the loss with
+   566→    respect to every weight in the network.
+   567→  ● 4. Update Weights (Gradient Descent) -- nudge every weight a small step in the direction that
+   568→    reduces the loss.
+   569→
+   570→5.2 Loss Functions
+   571→  ● Cross-Entropy Loss -- the standard choice for classification. For C classes with true one-hot label y
+   572→    and predicted probabilities ŷ (from softmax):
+   573→
+   574→                                                 L = −Σc=1C yc log(ŷc)
+   575→
+   576→  ● Mean Squared Error (MSE) -- common for regression, and useful for building intuition since its
+   577→    derivative is simple:
+   578→
+   579→                                                 L = (1) / (2)(y − ŷ)2
+   580→
+   581→5.3 Backpropagation -- The Chain Rule
+   582→  ● Backpropagation computes ∂L/∂w (how much the loss changes if a weight w changes) for every
+   583→    weight in the network, working backwards from the output.
+   584→  ● Each layer only needs two things: the gradient arriving from the layer in front of it (the upstream
+   585→    gradient), and its own local derivative. Multiplying these together (the chain rule) gives the gradient
+   586→    to pass further back.
+   587→                                         Page 13 of 46 | Manipal University Jaipur
+   588→CCE3144 Deep Learning                                                                 Unit: Convolutional Neural Networks
+   589→
+   590→  ● This is why deep networks are trainable at all -- a complicated end-to-end derivative is broken into
+   591→    a product of simple, local derivatives, one layer at a time.
+   592→
+   593→5.4 Worked Example -- Forward Pass, Loss, and Backward Pass
+   594→
+   595→  Example 5.1 -- Full Forward + Backward Pass for One Neuron
+   596→  Given: a single neuron with sigmoid activation. Input x=2, weight w=0.5, bias b=0.1, target y=1,
+   597→  learning rate η=0.1.
+   598→
+   599→  Sigmoid activation:
+   600→
+   601→                                               a = σ(z) = (1) / (1 + e−z)
+   602→
+   603→  STEP 1 -- Forward pass: compute z
+   604→
+   605→                                          z = wx + b = (0.5)(2) + 0.1 = 1.1
+   606→
+   607→  STEP 2 -- Forward pass: apply the activation
+   608→
+   609→                               a = σ(1.1) = 1 / (1 + e−1.1) = 1 / (1 + 0.3329) ≈ 0.7503
+   610→
+   611→  STEP 3 -- Compute the loss (MSE)
+   612→
+   613→                        L = (1) / (2)(y − a2) = 0.5 × (1 − 0.7503)2 = 0.5 × (0.2497)2 ≈ 0.0312
+   614→
+   615→  STEP 4 -- Backward pass: apply the chain rule
+   616→
+   617→  We need ∂L/∂w. The chain rule breaks it into three easy local derivatives:
+   618→
+   619→                                (∂L) / (∂w) = (∂L) / (∂a) × (∂a) / (∂z) × (∂z) / (∂w)
+   620→
+   621→     ● ∂L/∂a = −(y − a) = −(1 − 0.7503) = −0.2497 (derivative of the MSE loss)
+   622→     ● ∂a/∂z = a(1 − a) = 0.7503 × 0.2497 ≈ 0.1874 (the well-known derivative of the sigmoid
+   623→       function)
+   624→     ● ∂z/∂w = x = 2 (since z = wx + b)
+   625→
+   626→                                   (∂L) / (∂w) = (−0.2497)(0.1874)(2) ≈ −0.0936
+   627→
+   628→  STEP 5 -- Update the weight (gradient descent)
+   629→
+   630→                             wnew = w − η (∂L) / (∂w) = 0.5 − (0.1)(−0.0936) = 0.5094
+   631→
+   632→  A similar calculation gives ∂L/∂b = −0.0468 (since ∂z/∂b = 1), so bnew = 0.1 − (0.1)(−0.0468) = 0.1047.
+   633→
+   634→  Significance: the weight moved from 0.5 to 0.5094 -- a small step in the direction that would have
+   635→  made 'a' closer to the target y=1. Repeating this thousands of times, on thousands of examples, is
+   636→  literally what 'training' a network means.
+   637→
+   638→
+   639→
+   640→5.5 Backpropagation Through a Convolution Layer (Concept)
+   641→  ● A full symbolic derivation is lengthy, but the result is elegant and worth remembering:
+   642→    backpropagation through a convolution layer is itself another convolution.
+   643→
+   644→
+   645→
+   646→                                          Page 14 of 46 | Manipal University Jaipur
+   647→CCE3144 Deep Learning                                                               Unit: Convolutional Neural Networks
+   648→
+   649→  ● Gradient w.r.t. the filter weights: obtained by convolving the layer's input with the upstream
+   650→    gradient (the error signal flowing back from the next layer).
+   651→  ● Gradient w.r.t. the input (passed further back): obtained by convolving the upstream gradient
+   652→    with the filter rotated by 180°.
+   653→  ● Because of parameter sharing, the same filter is used at every spatial position during the forward
+   654→    pass, so its gradient is the sum of the contributions from every position it was applied to.
+   655→  ● Pooling layers have no weights to update; they simply route the gradient back to whichever input
+   656→    produced the pooled output (for max pooling, all the gradient goes to the single max element; for
+   657→    average pooling, it is split equally among all elements in the window).
+   658→
+   659→5.6 Gradient Descent Variants
+   660→
+   661→                Variant                        Update uses...                                  Trade-off
+   662→
+   663→                                                                                 Stable direction, but slow and
+   664→ Batch Gradient Descent            The entire training set, per update
+   665→                                                                                 memory-heavy
+   666→
+   667→                                   One randomly chosen example, per              Very fast updates, but noisy /
+   668→ Stochastic GD (SGD)
+   669→                                   update                                        erratic path
+   670→
+   671→                                   A small batch (e.g. 32, 64, 128               The practical standard -- balances
+   672→ Mini-batch Gradient Descent
+   673→                                   examples)                                     speed and stability
+   674→In practice, mini-batch gradient descent is almost always combined with an adaptive optimizer
+   675→(Momentum, RMSProp, or Adam) that adjusts the effective learning rate per parameter -- see Section 9
+   676→(Hyperparameter Optimization).
+   677→
+   678→
+   679→
+   680→
+   681→6. Weight Initialization
+   682→
+   683→6.1 Why Does Initialization Matter?
+   684→  ● Before training starts, every weight must be set to some initial value. This starting point has a big
+   685→    effect on how well, and how fast, the network learns.
+   686→  ● Zero initialization is broken -- the symmetry problem: if every weight in a layer starts at exactly 0
+   687→    (or any other identical constant), every neuron in that layer computes the exact same output and
+   688→    receives the exact same gradient during backprop. They then update identically forever -- the layer
+   689→    can never break this symmetry, so it behaves like a single neuron no matter how many it actually
+   690→    has.
+   691→  ● Random initialization breaks symmetry, but the scale of the random numbers still matters
+   692→    enormously: too large and activations/gradients can explode layer after layer; too small and they
+   693→    can vanish to near-zero in deep networks.
+   694→
+   695→6.2 Xavier / Glorot Initialization
+   696→  ● Designed for tanh / sigmoid activations. The goal is to keep the variance of activations (and
+   697→    gradients) roughly constant as signals pass through layers, so nothing explodes or vanishes.
+   698→
+   699→                                     Page 15 of 46 | Manipal University Jaipur
+   700→CCE3144 Deep Learning                                                                Unit: Convolutional Neural Networks
+
+[showing lines 1-700 of 2227; use offset=701 with limit to continue reading]

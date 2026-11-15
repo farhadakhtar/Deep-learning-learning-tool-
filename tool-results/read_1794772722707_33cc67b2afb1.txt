@@ -1,0 +1,402 @@
+    22→    22→                                                              TABLE OF CONTENTS
+    23→    23→1. Introduction to Deep Learning............................................................................................................................................ 3
+    24→    24→   1.1 What is Deep Learning? ............................................................................................................................................... 3
+    25→    25→   1.2 Why Deep Learning Now? – The Three Enablers ........................................................................................................ 4
+    26→    26→   1.3 Applications of Deep Learning ..................................................................................................................................... 4
+    27→    27→   1.4 Biological Inspiration – From Neuron to Perceptron ................................................................................................... 4
+    28→    28→2. The Perceptron .................................................................................................................................................................... 5
+    29→    29→   2.1 Definition and Historical Note ...................................................................................................................................... 5
+    30→    30→   2.2 Mathematical Model ..................................................................................................................................................... 5
+    31→    31→       Significance of each component ..................................................................................................................................... 5
+    32→    32→   2.3 Geometric Interpretation – Linear Separability ............................................................................................................ 6
+    33→    33→   2.4 Perceptron Learning Algorithm .................................................................................................................................... 6
+    34→    34→   2.5 Worked Numerical Example — Learning the AND Function ..................................................................................... 7
+    35→    35→       Detailed walk-through of Epoch 1 .................................................................................................................................. 7
+    36→    36→       Complete training trace (all epochs, computer-verified) ................................................................................................ 8
+    37→    37→       Verification and decision boundary ................................................................................................................................ 9
+    38→    38→   2.6 Limitation of the Perceptron — The XOR Problem ................................................................................................... 10
+    39→    39→3. Learning and Recognition ................................................................................................................................................. 11
+    40→    40→   3.1 Supervised Learning ................................................................................................................................................... 11
+    41→    41→   3.2 Unsupervised Learning ............................................................................................................................................... 11
+    42→    42→   3.3 Supervised vs Unsupervised — Comparison.............................................................................................................. 12
+    43→    43→   3.4 Worked Numerical Example — K-Means Clustering (1 iteration) ............................................................................ 12
+    44→    44→CCE3144 – Deep Learning                                                                                                      Manipal University Jaipur
+    45→    45→
+    46→    46→4. Loss Functions .................................................................................................................................................................. 13
+    47→    47→   4.1 What Is a Loss Function?............................................................................................................................................ 13
+    48→    48→   4.2 Regression Loss — Mean Squared Error (MSE) ........................................................................................................ 14
+    49→    49→       Numerical Example — MSE / MAE ............................................................................................................................ 14
+    50→    50→   4.3 Classification Loss — Binary Cross-Entropy (BCE) ................................................................................................. 14
+    51→    51→       Numerical Example — Binary Cross-Entropy ............................................................................................................. 14
+    52→    52→   4.4 Categorical Cross-Entropy (multi-class)..................................................................................................................... 15
+    53→    53→   4.5 Why Cross-Entropy Rather Than MSE for Classification? ........................................................................................ 15
+    54→    54→   4.6 Summary of Common Loss Functions ....................................................................................................................... 15
+    55→    55→5. Backpropagation ............................................................................................................................................................... 16
+    56→    56→   5.1 Why Is Backpropagation Needed?.............................................................................................................................. 16
+    57→    57→   5.2 The Chain Rule of Differentiation .............................................................................................................................. 16
+    58→    58→   5.3 Forward Pass and Backward Pass ............................................................................................................................... 16
+    59→    59→   5.4 Complete Worked Example ........................................................................................................................................ 17
+    60→    60→       Step 1 — Forward Pass................................................................................................................................................. 17
+    61→    61→       Step 2 — Backward Pass: Output Layer....................................................................................................................... 17
+    62→    62→       Step 3 — Backward Pass: Hidden Layer ...................................................................................................................... 18
+    63→    63→       Step 4 — Weight Update (w ← w − η ∂L/∂w, η = 0.5) .............................................................................................. 18
+    64→    64→   5.5 Key Observations........................................................................................................................................................ 19
+    65→    65→   5.6 Common Activation Functions ................................................................................................................................... 19
+    66→    66→6. Gradient Descent and Stochastic Gradient Descent.......................................................................................................... 20
+    67→    67→   6.1 Gradient Descent — Recap......................................................................................................................................... 20
+    68→    68→   6.2 Batch, Stochastic, and Mini-Batch Gradient Descent ................................................................................................. 20
+    69→    69→   6.3 Worked Numerical Example — Batch GD vs SGD ................................................................................................... 21
+    70→    70→       Batch GD update (uses all 3 points at once) ................................................................................................................. 21
+    71→    71→       SGD update (uses only the 1st point: x=1, y=3) ........................................................................................................... 21
+    72→    72→8. Practice Questions — Part A: Multiple Choice Questions ............................................................................................... 22
+    73→    73→9. Practice Questions — Part B: Descriptive & Numerical Questions ................................................................................. 26
+    74→    74→   Group 1: The Perceptron (Q1–Q7) ................................................................................................................................... 26
+    75→    75→   Group 2: Supervised & Unsupervised Learning (Q8–Q14).............................................................................................. 29
+    76→    76→   Group 3: Loss Functions (Q15–Q21) ............................................................................................................................... 31
+    77→    77→   Group 4: Backpropagation (Q22–Q28) ............................................................................................................................ 33
+    78→    78→   Group 5: Gradient Descent & SGD (Q29–Q35) ............................................................................................................... 35
+    79→    79→
+    80→    80→
+    81→    81→
+    82→    82→
+    83→    83→                                                             Unit 1: Introduction to Deep Learning | Page 2 of 36
+    84→    84→CCE3144 – Deep Learning                                                                         Manipal University Jaipur
+    85→    85→
+    86→    86→
+    87→    87→1. Introduction to Deep Learning
+    88→    88→
+    89→    89→1.1 What is Deep Learning?
+    90→    90→Deep Learning (DL) is the branch of Machine Learning that uses multi-layered (“deep”) artificial neural
+    91→    91→networks to learn directly from data.
+    92→    92→  ● Deep Learning is a subset of Machine Learning (ML), which itself is a subset of Artificial
+    93→    93→    Intelligence (AI).
+    94→    94→  ● It uses artificial neural networks with many hidden layers to automatically learn hierarchical
+    95→    95→    representations of raw data.
+    96→    96→  ● Unlike classical ML, DL removes the need for manual / hand-crafted feature engineering – the
+    97→    97→    network learns useful features by itself.
+    98→    98→      – Example (image recognition): early layers detect edges → middle layers detect shapes/textures
+    99→    99→         → deeper layers detect object parts → final layers recognise the whole object.
+   100→   100→
+   101→   101→
+   102→   102→
+   103→   103→
+   104→   104→           Figure: Deep Learning is a subset of Machine Learning, which is a subset of Artificial Intelligence.
+   105→   105→
+   106→   106→
+   107→   107→
+   108→   108→
+   109→   109→                                         Unit 1: Introduction to Deep Learning | Page 3 of 36
+   110→   110→CCE3144 – Deep Learning                                                                            Manipal University Jaipur
+   111→   111→
+   112→   112→1.2 Why Deep Learning Now? – The Three Enablers
+   113→   113→  ● Big Data: massive labelled and unlabelled datasets are now available (e.g. ImageNet, web-scale
+   114→   114→    text) to train large models.
+   115→   115→  ● Compute Power: GPUs / TPUs allow the huge number of matrix multiplications in deep networks
+   116→   116→    to be parallelised efficiently.
+   117→   117→  ● Algorithmic Advances: better activation functions (ReLU), optimisers (Adam, RMSProp), and
+   118→   118→    regularisation techniques (Dropout, Batch Normalisation) made very deep networks trainable.
+   119→   119→
+   120→   120→1.3 Applications of Deep Learning
+   121→   121→                   Domain                                                     Example Applications
+   122→   122→ Computer Vision                               Image classification, object detection, face recognition
+   123→   123→ Natural Language Processing                   Machine translation, chatbots, sentiment analysis
+   124→   124→ Speech Processing                             Speech-to-text, voice assistants
+   125→   125→ Healthcare                                    Disease diagnosis from scans, drug discovery
+   126→   126→ Autonomous Systems                            Self-driving cars, robotic control
+   127→   127→
+   128→   128→
+   129→   129→1.4 Biological Inspiration – From Neuron to Perceptron
+   130→   130→Artificial neurons are loosely inspired by biological neurons in the brain:
+   131→   131→  ● Dendrites receive electrical/chemical signals from other neurons — analogous to inputs x₁, x₂, …,
+   132→   132→    xₙ.
+   133→   133→  ● The Soma (cell body) accumulates the incoming signals — analogous to the weighted summation
+   134→   134→    Σ.
+   135→   135→  ● If the accumulated signal crosses a threshold, the neuron “fires” through its Axon — analogous to
+   136→   136→    an activation function producing an output.
+   137→   137→  ● The strength of a connection (synapse) is analogous to a weight wᵢ — learning = adjusting these
+   138→   138→    weights.
+   139→   139→
+   140→   140→
+   141→   141→
+   142→   142→
+   143→   143→                Figure: Biological neuron (left) and its simplified artificial analogue, the perceptron (right).
+   144→   144→
+   145→   145→
+   146→   146→                                            Unit 1: Introduction to Deep Learning | Page 4 of 36
+   147→   147→CCE3144 – Deep Learning                                                                        Manipal University Jaipur
+   148→   148→
+   149→   149→
+   150→   150→2. The Perceptron
+   151→   151→
+   152→   152→2.1 Definition and Historical Note
+   153→   153→  ● Proposed by Frank Rosenblatt (1958), building on the earlier McCulloch–Pitts neuron model (1943).
+   154→   154→  ● A perceptron is the simplest artificial neuron: it performs binary classification by drawing a straight-
+   155→   155→    line (linear) decision boundary between two classes.
+   156→   156→  ● It is the fundamental building block from which larger neural networks (Multi-Layer Perceptrons)
+   157→   157→    are constructed.
+   158→   158→
+   159→   159→2.2 Mathematical Model
+   160→   160→A perceptron performs two operations in sequence — a weighted summation, followed by a non-linear
+   161→   161→activation:
+   162→   162→
+   163→   163→                          Net input:   z = w₁x₁ + w₂x₂ + … + wₙxₙ + b = ∑ wᵢxᵢ + b
+   164→   164→                   Output:    y = f(z) = 1 if z ≥ 0 ,                 0 if z < 0              (unit-step activation)
+   165→   165→
+   166→   166→
+   167→   167→
+   168→   168→
+   169→   169→Figure: Block diagram of a perceptron – inputs are weighted, summed with a bias, and passed through an activation
+   170→   170→                                                    function.
+   171→   171→
+   172→   172→Significance of each component
+   173→   173→  ● Inputs (x₁…xₙ): the numeric feature values describing the pattern to be classified.
+   174→   174→  ● Weights (w₁…wₙ): learnable parameters that decide how strongly each input influences the
+   175→   175→    output; learned from data.
+   176→   176→  ● Bias (b): shifts the decision boundary away from the origin, so the boundary need not pass
+   177→   177→    through (0,0,…).
+   178→   178→  ● Net input (z): a linear combination of inputs – geometrically, it measures the (signed) distance of
+   179→   179→    a point from the decision hyperplane.
+   180→   180→  ● Activation f(z): converts the continuous net input into a discrete class decision (0 or 1).
+   181→   181→                                       Unit 1: Introduction to Deep Learning | Page 5 of 36
+   182→   182→CCE3144 – Deep Learning                                                                       Manipal University Jaipur
+   183→   183→
+   184→   184→2.3 Geometric Interpretation – Linear Separability
+   185→   185→  ● The equation ∑wᵢxᵢ + b = 0 defines a straight line (2 inputs), a plane (3 inputs), or a hyperplane (n
+   186→   186→    inputs) that separates the input space into two half-spaces.
+   187→   187→  ● A perceptron can classify a dataset correctly only if the two classes are linearly separable – i.e. some
+   188→   188→    hyperplane can separate them completely.
+   189→   189→
+   190→   190→2.4 Perceptron Learning Algorithm
+   191→   191→Weights are learned iteratively so that the perceptron's output matches the desired target for every
+   192→   192→training example.
+   193→   193→Step 1 — Initialise
+   194→   194→  ● Set weights wᵢ and bias b to 0 (or small random values); choose a learning rate η, where 0 < η ≤ 1.
+   195→   195→Step 2 — For every training pair (x, t), where t is the target output
+   196→   196→  ● (a) Compute the net input: z = ∑ wᵢxᵢ + b
+   197→   197→  ● (b) Compute the predicted output: y = f(z)
+   198→   198→  ● (c) Compute the error: e = t − y
+   199→   199→  ● (d) Update every weight: wᵢ ← wᵢ + η·e·xᵢ
+   200→   200→  ● (e) Update the bias: b ← b + η·e
+   201→   201→Step 3 — Repeat
+   202→   202→  ● Repeat Step 2 for every example in the training set — this is one epoch.
+   203→   203→  ● Repeat over multiple epochs until an entire epoch produces zero errors (convergence), or a
+   204→   204→    maximum number of epochs is reached.
+   205→   205→
+   206→   206→    wᵢ(new) = wᵢ(old) + η (t − y) xᵢ            b(new) = b(old) + η (t − y)
+   207→   207→
+   208→   208→
+   209→   209→  Why does this update rule work?
+   210→   210→  If prediction is already correct (e = 0): no change is made — there is nothing to fix.
+   211→   211→  If target = 1 but output = 0 (e = +1): weights are increased along xⁱ, raising z next time so it is more
+   212→   212→  likely to cross the threshold and fire (output 1).
+   213→   213→  If target = 0 but output = 1 (e = −1): weights are decreased, lowering z next time so it is more likely
+   214→   214→  to stay below threshold (output 0).
+   215→   215→  Perceptron Convergence Theorem: if the two classes are linearly separable, this algorithm is
+   216→   216→  guaranteed to find a separating hyperplane in a finite number of steps.
+   217→   217→
+   218→   218→
+   219→   219→
+   220→   220→
+   221→   221→                                       Unit 1: Introduction to Deep Learning | Page 6 of 36
+   222→   222→CCE3144 – Deep Learning                                                                    Manipal University Jaipur
+   223→   223→
+   224→   224→2.5 Worked Numerical Example — Learning the AND Function
+   225→   225→We train a single perceptron to reproduce the 2-input AND logic gate.
+   226→   226→                 x₁                        x₂                                          Target t = x₁ AND x₂
+   227→   227→ 0                           0                                     0
+   228→   228→ 0                           1                                     0
+   229→   229→ 1                           0                                     0
+   230→   230→ 1                           1                                     1
+   231→   231→
+   232→   232→
+   233→   233→Initial settings: w₁ = 0, w₂ = 0, b = 0, learning rate η = 1, activation: unit step with threshold z ≥ 0 →
+   234→   234→1.
+   235→   235→
+   236→   236→Detailed walk-through of Epoch 1
+   237→   237→Sample 1: x = (0,0), target t = 0
+   238→   238→ ● z = (0)(0) + (0)(0) + 0 = 0 → since z ≥ 0, y = 1
+   239→   239→ ● error e = t − y = 0 − 1 = −1 (wrong prediction → update needed)
+   240→   240→ ● w₁ ← 0 + 1(−1)(0) = 0, w₂ ← 0 + 1(−1)(0) = 0, b ← 0 + 1(−1) = −1
+   241→   241→     – Significance: both inputs are 0, so only the bias absorbs the correction — weights cannot
+   242→   242→        change when their input is 0.
+   243→   243→Sample 2: x = (0,1), target t = 0
+   244→   244→ ● z = (0)(0) + (0)(1) + (−1) = −1 → since z < 0, y = 0
+   245→   245→ ● error e = 0 − 0 = 0 → prediction already correct, no update
+   246→   246→     – Significance: zero error means the current weights already work for this sample — the rule
+   247→   247→        leaves them untouched.
+   248→   248→Sample 3: x = (1,0), target t = 0
+   249→   249→ ● z = (0)(1) + (0)(0) + (−1) = −1 → y = 0, error e = 0 → no update
+   250→   250→Sample 4: x = (1,1), target t = 1
+   251→   251→ ● z = (0)(1) + (0)(1) + (−1) = −1 → since z < 0, y = 0
+   252→   252→ ● error e = 1 − 0 = 1 (wrong prediction → update needed)
+   253→   253→ ● w₁ ← 0 + 1(1)(1) = 1, w₂ ← 0 + 1(1)(1) = 1, b ← −1 + 1(1) = 0
+   254→   254→     – Significance: the only positive example was misclassified as 0, so weights increase along both
+   255→   255→        active inputs, pushing z upward for this pattern next time.
+   256→   256→
+   257→   257→
+   258→   258→
+   259→   259→
+   260→   260→                                    Unit 1: Introduction to Deep Learning | Page 7 of 36
+   261→   261→CCE3144 – Deep Learning                                                                               Manipal University Jaipur
+   262→   262→
+   263→   263→End of Epoch 1: w₁ = 1, w₂ = 1, b = 0 — not yet converged (2 errors occurred), so training continues.
+   264→   264→
+   265→   265→Complete training trace (all epochs, computer-verified)
+   266→   266→  Ep.          (x₁,x₂)        t   Weights used (w₁,w₂,b)                      z         y           t−y                New (w₁,w₂,b)
+   267→   267→ 1          0,0           0       0, 0, 0                                0          1         -1             0, 0, −1
+   268→   268→ 1          0,1           0       0, 0, −1                               -1         0         0              0, 0, −1
+   269→   269→ 1          1,0           0       0, 0, −1                               -1         0         0              0, 0, −1
+   270→   270→ 1          1,1           1       0, 0, −1                               -1         0         1              1, 1, 0
+   271→   271→ 2          0,0           0       1, 1, 0                                0          1         -1             1, 1, −1
+   272→   272→ 2          0,1           0       1, 1, −1                               0          1         -1             1, 0, −2
+   273→   273→ 2          1,0           0       1, 0, −2                               -1         0         0              1, 0, −2
+   274→   274→ 2          1,1           1       1, 0, −2                               -1         0         1              2, 1, −1
+   275→   275→ 3          0,0           0       2, 1, −1                               -1         0         0              2, 1, −1
+   276→   276→ 3          0,1           0       2, 1, −1                               0          1         -1             2, 0, −2
+   277→   277→ 3          1,0           0       2, 0, −2                               0          1         -1             1, 0, −3
+   278→   278→ 3          1,1           1       1, 0, −3                               -2         0         1              2, 1, −2
+   279→   279→ 4          0,0           0       2, 1, −2                               -2         0         0              2, 1, −2
+   280→   280→ 4          0,1           0       2, 1, −2                               -1         0         0              2, 1, −2
+   281→   281→ 4          1,0           0       2, 1, −2                               0          1         -1             1, 1, −3
+   282→   282→ 4          1,1           1       1, 1, −3                               -1         0         1              2, 2, −2
+   283→   283→ 5          0,0           0       2, 2, −2                               -2         0         0              2, 2, −2
+   284→   284→ 5          0,1           0       2, 2, −2                               0          1         -1             2, 1, −3
+   285→   285→ 5          1,0           0       2, 1, −3                               -1         0         0              2, 1, −3
+   286→   286→ 5          1,1           1       2, 1, −3                               0          1         0              2, 1, −3
+   287→   287→ 6          0,0           0       2, 1, −3                               -3         0         0              2, 1, −3
+   288→   288→ 6          0,1           0       2, 1, −3                               -2         0         0              2, 1, −3
+   289→   289→ 6          1,0           0       2, 1, −3                               -1         0         0              2, 1, −3
+   290→   290→ 6          1,1           1       2, 1, −3                               0          1         0              2, 1, −3
+   291→   291→
+   292→   292→
+   293→   293→Epoch 6 produces zero error on all four patterns → training has converged. Final weights: w₁ = 2, w₂ =
+   294→   294→1, b = −3.
+   295→   295→
+   296→   296→
+   297→   297→
+   298→   298→
+   299→   299→                                             Unit 1: Introduction to Deep Learning | Page 8 of 36
+   300→   300→CCE3144 – Deep Learning                                                                              Manipal University Jaipur
+   301→   301→
+   302→   302→Verification and decision boundary
+   303→   303→        x₁                x₂              z = 2x₁+x₂−3                     Output y                   Target                     Match?
+   304→   304→
+   305→   305→ 0                   0               −3                                0                         0                       ✓
+   306→   306→
+   307→   307→ 0                   1               −2                                0                         0                       ✓
+   308→   308→
+   309→   309→ 1                   0               −1                                0                         0                       ✓
+   310→   310→
+   311→   311→ 1                   1               0                                 1                         1                       ✓
+   312→   312→
+   313→   313→
+   314→   314→
+   315→   315→                               Decision boundary: 2x₁ + x₂ − 3 = 0                   ⟺           x₂ = 3 − 2x₁
+   316→   316→
+   317→   317→
+   318→   318→
+   319→   319→
+   320→   320→  Figure: The learned line 2x₁+x₂−3=0 places (1,1) on the positive side and the other 3 points on the negative side.
+   321→   321→
+   322→   322→
+   323→   323→
+   324→   324→
+   325→   325→                                          Unit 1: Introduction to Deep Learning | Page 9 of 36
+   326→   326→CCE3144 – Deep Learning                                                                     Manipal University Jaipur
+   327→   327→
+   328→   328→2.6 Limitation of the Perceptron — The XOR Problem
+   329→   329→A single-layer perceptron can only separate linearly separable classes. The XOR function is the classic
+   330→   330→counter-example:
+   331→   331→              x₁                   x₂                              Target = XOR                                         Class
+   332→   332→ 0                        0                           0                                                  Class 0
+   333→   333→ 0                        1                           1                                                  Class 1
+   334→   334→ 1                        0                           1                                                  Class 1
+   335→   335→ 1                        1                           0                                                  Class 0
+   336→   336→
+   337→   337→
+   338→   338→  ● Class 0 points {(0,0),(1,1)} and Class 1 points {(0,1),(1,0)} lie on opposite diagonals of the unit
+   339→   339→    square — no single straight line can separate them.
+   340→   340→
+   341→   341→  ● Formally: no w₁, w₂, b exist that satisfy all four inequalities implied by the XOR truth table
+   342→   342→    simultaneously (this can be shown leads to a contradiction, e.g. adding the inequalities for (0,0) and
+   343→   343→    (1,1) contradicts those for (0,1) and (1,0)).
+   344→   344→
+   345→   345→  ● This limitation, highlighted by Minsky & Papert (1969), was resolved by stacking multiple
+   346→   346→    perceptron layers — the Multi-Layer Perceptron (MLP) — trained using the Backpropagation
+   347→   347→    algorithm (Section 5).
+   348→   348→  ● XOR is not linearly separable, so a single-layer perceptron fails. It is solved by a 2-2-1 Multi-Layer
+   349→   349→    Perceptron (2 inputs → 2 hidden neurons → 1 output neuron) using a hard step (threshold) activation:
+   350→   350→
+   351→   351→(The output effectively computes h1 AND (NOT h2 ).)
+   352→   352→
+   353→   353→
+   354→   354→
+   355→   355→
+   356→   356→                                    Unit 1: Introduction to Deep Learning | Page 10 of 36
+   357→   357→CCE3144 – Deep Learning                                                                       Manipal University Jaipur
+   358→   358→
+   359→   359→
+   360→   360→3. Learning and Recognition
+   361→   361→“Learning” in a neural network means automatically adjusting weights from data. “Recognition” is the
+   362→   362→use of the trained network to identify / classify new, unseen patterns. Based on the nature of the training
+   363→   363→data, learning is broadly divided into supervised and unsupervised learning.
+   364→   364→
+   365→   365→3.1 Supervised Learning
+   366→   366→  ● Training data consists of input–output pairs (X, Y), where Y is the known, correct “label” or “target”
+   367→   367→    for each input X.
+   368→   368→  ● The algorithm learns a mapping f: X → Y that minimises the difference between predicted and
+   369→   369→    actual outputs.
+   370→   370→  ● Two main task types:
+   371→   371→      – Classification: output is a discrete category (e.g. spam / not spam, digit 0–9).
+   372→   372→      – Regression: output is a continuous numeric value (e.g. house price, temperature).
+   373→   373→  ● Examples: email spam detection, disease diagnosis from labelled scans, house-price prediction, the
+   374→   374→    AND-gate perceptron of Section 2.
+   375→   375→
+   376→   376→3.2 Unsupervised Learning
+   377→   377→  ● Training data consists of only inputs X, with no associated target labels.
+   378→   378→  ● The algorithm discovers hidden structure, patterns, or groupings in the data by itself.
+   379→   379→  ● Common tasks: clustering (grouping similar points), dimensionality reduction, anomaly detection.
+   380→   380→  ● Examples: customer segmentation for marketing, grouping news articles by topic, anomaly
+   381→   381→    detection in network traffic.
+   382→   382→
+   383→   383→
+   384→   384→
+   385→   385→
+   386→   386→    Figure: Supervised learning uses labelled data to learn a direct input→output mapping; unsupervised learning
+   387→   387→                                         discovers structure without labels.
+   388→   388→
+   389→   389→
+   390→   390→
+   391→   391→                                      Unit 1: Introduction to Deep Learning | Page 11 of 36
+   392→   392→CCE3144 – Deep Learning                                                                     Manipal University Jaipur
+   393→   393→
+   394→   394→3.3 Supervised vs Unsupervised — Comparison
+   395→   395→              Aspect                  Supervised Learning                                     Unsupervised Learning
+   396→   396→ Training data               Labelled (X, Y)                                        Unlabelled (X only)
+   397→   397→ Goal                        Learn mapping X → Y                                    Discover hidden structure
+   398→   398→ Feedback                    Direct error signal (loss)                             No explicit error signal
+   399→   399→ Typical tasks               Classification, Regression                             Clustering, Dimensionality reduction
+   400→   400→ Example algorithm           Perceptron, Logistic Regression, CNN                   K-Means, PCA, Autoencoders
+   401→   401→ Data cost                   Expensive (needs human labelling)                      Cheaper (labels not required)
+   402→   402→
+   403→   403→
+   404→   404→
+   405→   405→3.4 Worked Numerical Example — K-Means Clustering (1 iteration)
+   406→   406→K-Means is a classic unsupervised algorithm that groups data into k clusters by iteratively updating
+   407→   407→cluster centroids. Consider 4 points and k = 2:
+   408→   408→  ● Points: A(1,1), B(2,1), C(4,3), D(5,4)
+   409→   409→  ● Initial centroids (chosen as first/last point): C₁ = (1,1), C₂ = (5,4)
+   410→   410→Step 1 — Assign each point to its nearest centroid (Euclidean distance)
+   411→   411→  ● A(1,1): dist to C₁ = 0.00, dist to C₂ = √[(1−5)²+(1−4)²] = √25 = 5.00 → closer to C₁ → Cluster 1
+   412→   412→  ● B(2,1): dist to C₁ = √[(2−1)²+(1−1)²] = 1.00, dist to C₂ = √[(2−5)²+(1−4)²] = 4.24 → Cluster 1
+   413→   413→  ● C(4,3): dist to C₁ = √[(4−1)²+(3−1)²] = 3.61, dist to C₂ = √[(4−5)²+(3−4)²] = 1.41 → Cluster 2
+   414→   414→  ● D(5,4): dist to C₁ = √[(5−1)²+(4−1)²] = 5.00, dist to C₂ = 0.00 → Cluster 2
+   415→   415→Step 2 — Recompute centroids as the mean of assigned points
+   416→   416→  ● Cluster 1 = {A(1,1), B(2,1)} → new C₁ = ((1+2)/2, (1+1)/2) = (1.50, 1.00)
+   417→   417→  ● Cluster 2 = {C(4,3), D(5,4)} → new C₂ = ((4+5)/2, (3+4)/2) = (4.50, 3.50)
+   418→   418→  ● Significance: each iteration pulls the centroid toward the centre of mass of its assigned points; the
+   419→   419→    process repeats until centroids stop moving (convergence) — all without ever using a target label.
+   420→   420→
+   421→   421→
+
+[showing lines 22-421 of 1394; use offset=422 with limit to continue reading]
